@@ -65,9 +65,24 @@
 		<artifactId>appengine-remote-api</artifactId>
 		<version>1.9.12</version>
 	</dependency>
+	<dependency>
+		<groupId>com.beust</groupId>
+		<artifactId>jcommander</artifactId>
+		<version>1.35</version>
+	</dependency>
+	
   </dependencies>
   
   <build>
+      <resources>
+        <resource>
+            <directory>resource</directory>
+            <includes>
+                <include>**/*.properties</include>
+            </includes>
+        </resource>
+    </resources>
+      
       <plugins>
         <plugin>
 	        <artifactId>maven-compiler-plugin</artifactId>
