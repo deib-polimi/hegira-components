@@ -10,10 +10,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 /**
+ * Class providing the standard Java (de)serialization.
  * @author Marco Scavuzzo
- *
  */
-
 public class DefaultSerializer {
 	public static byte[] serialize(Object obj) throws IOException {
 		ByteArrayOutputStream b = new ByteArrayOutputStream();

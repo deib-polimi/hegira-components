@@ -70,10 +70,10 @@ public class ServiceQueue {
 					queueName = channelConsume.queueDeclare().getQueue();
 					break;
 			}
-			
 
 			/**
 			 * routing key bindings: relationship between an exchange and a queue.
+			 * Binds the queue, just created, with an exchange and with a routing key.
 			 */
 			channelConsume.queueBind(queueName, EXCHANGE_NAME, LISTEN_RK);
 			log.debug("Binding the consuming channel. ROUTING KEY: "+LISTEN_RK+" QUEUE NAME: "+queueName);

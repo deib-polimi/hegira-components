@@ -3,10 +3,7 @@
  */
 package it.polimi.hegira;
 
-import java.net.URL;
-
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 
 import com.beust.jcommander.JCommander;
 
@@ -16,8 +13,8 @@ import it.polimi.hegira.utils.CLI;
 import it.polimi.hegira.utils.DefaultErrors;
 
 /**
+ * Hegira-components entry point.
  * @author Marco Scavuzzo
- *
  */
 public class EntryClass {
 	private static Logger log = Logger.getLogger(EntryClass.class);

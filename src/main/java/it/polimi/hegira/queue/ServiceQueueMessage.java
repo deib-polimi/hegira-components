@@ -6,8 +6,9 @@ package it.polimi.hegira.queue;
 import java.util.List;
 
 /**
+ * Class defining the structure of a command message passed in the service queue.
+ * (To be serialized with the standard Java serialization {@link it.polimi.hegira.utils.DefaultSerializer})
  * @author Marco Scavuzzo
- *
  */
 public class ServiceQueueMessage {
 	private String source;
