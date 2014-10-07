@@ -34,6 +34,7 @@ public class EntryClass {
 		ServiceQueue serviceQueue = new ServiceQueue(cli.componentType, cli.queueAddress);
 		try {
 			serviceQueue.announcePresence();
+			serviceQueue.receiveCommands();
 		} catch (QueueException e) {
 			log.error(DefaultErrors.queueError);
 			log.error(e.getMessage());

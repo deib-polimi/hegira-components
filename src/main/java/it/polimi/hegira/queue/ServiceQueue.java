@@ -148,6 +148,7 @@ public class ServiceQueue {
 			            		}else if(LISTEN_RK.equals("TWC")){
 			            			
 			            		}
+							log.debug("Received command message");
 							break;
 						default:
 							break;
