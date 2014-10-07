@@ -53,6 +53,11 @@ public class ServiceQueue {
 			log.debug("Consuming channel created. Exchange: "+EXCHANGE_NAME+" type: direct");
 			
 			//String queueName = channelConsume.queueDeclare().getQueue();
+			/**
+			 * queueDeclare(java.lang.String queue, boolean durable, 
+			 * boolean exclusive, boolean autoDelete, 
+			 * java.util.Map<java.lang.String,java.lang.Object> arguments) 
+			 */
 			String queueName;
 			switch(componentType){
 				case "SRC":
@@ -106,6 +111,11 @@ public class ServiceQueue {
 		 * 		AMQP.BasicProperties props, byte[] body)
 		 */
 		try {
+			//declare Q1 regardless if it already exists or not ...
+			String queueName = channelConsume.queueDeclare("Q1", false, false, false, null).getQueue();
+			//... and bind it to the proper Exchange and routingKey
+			channelPublish.queueBind(queueName, EXCHANGE_NAME, routingKey);
+			
 			channelPublish.basicPublish(EXCHANGE_NAME, routingKey, null, messageBody);
 			log.debug("Message published. ROUTING KEY: "+routingKey);
 		} catch (IOException e) {
