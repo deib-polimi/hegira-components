@@ -52,7 +52,21 @@ public class ServiceQueue {
 			channelConsume.exchangeDeclare(EXCHANGE_NAME, "direct");
 			log.debug("Consuming channel created. Exchange: "+EXCHANGE_NAME+" type: direct");
 			
-			String queueName = channelConsume.queueDeclare().getQueue();
+			//String queueName = channelConsume.queueDeclare().getQueue();
+			String queueName;
+			switch(componentType){
+				case "SRC":
+					queueName = channelConsume.queueDeclare("Q2", false, false, false, null).getQueue();
+					break;
+				case "TWC":
+					queueName = channelConsume.queueDeclare("Q3", false, false, false, null).getQueue();
+					break;
+				default:
+					queueName = channelConsume.queueDeclare().getQueue();
+					break;
+			}
+			
+
 			/**
 			 * routing key bindings: relationship between an exchange and a queue.
 			 */
