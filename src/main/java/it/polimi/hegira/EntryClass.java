@@ -36,7 +36,12 @@ public class EntryClass {
 		try {
 			//Telling hegira-api that we are ready to receive commands
 			serviceQueue.announcePresence();
-			
+			/**
+			 * Continuously waiting for command messages.
+			 * Actions to message should be executed by threads, 
+			 * in order for the application to be responsive (to other commands, 
+			 * 	i.e stop-migration, report-status, ecc..). 
+			 */
 			while(true){
 				
 				ServiceQueueMessage sqm = serviceQueue.receiveCommands();

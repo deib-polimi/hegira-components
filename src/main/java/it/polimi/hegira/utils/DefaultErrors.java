@@ -11,6 +11,8 @@ public class DefaultErrors {
 	public static String fewParameters = "Error 8: Too few parameters. Check the documentation";
 	public static String queueError = "Error 9: Impossible to access the queue.";
 	
+	private static String threadsInformation = "The maximum number of supported writing threads is %s. The application is going to use %s writing threads.";
+	
 	public static String getErrorNumber(String error){
 		int start = error.lastIndexOf("Error ");
 		int col = error.lastIndexOf(": ");
@@ -19,5 +21,10 @@ public class DefaultErrors {
 	public static String getErrorMessage(String error){
 		int col = error.lastIndexOf(": ");
 		return error.substring(col+1);
+	}
+	
+	public static String getThreadsInformation(int MAX_THREADS_NO){
+		String replace = threadsInformation.replace("%s", ""+MAX_THREADS_NO);
+		return replace;
 	}
 }

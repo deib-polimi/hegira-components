@@ -29,7 +29,7 @@ public class ServiceQueue {
 	private static final String EXCHANGE_NAME = "service-queue";
 	public static final String API_PUBLISH_RK = "toApiServer";
 	private String LISTEN_RK;
-	QueueingConsumer consumer;
+	private QueueingConsumer consumer;
 	
 	public ServiceQueue(String componentType, String queueAddress){
 		LISTEN_RK = componentType;
