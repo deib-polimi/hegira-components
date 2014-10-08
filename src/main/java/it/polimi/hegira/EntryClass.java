@@ -9,6 +9,7 @@ import com.beust.jcommander.JCommander;
 
 import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.queue.ServiceQueue;
+import it.polimi.hegira.queue.ServiceQueueMessage;
 import it.polimi.hegira.utils.CLI;
 import it.polimi.hegira.utils.DefaultErrors;
 
@@ -33,8 +34,26 @@ public class EntryClass {
 			
 		ServiceQueue serviceQueue = new ServiceQueue(cli.componentType, cli.queueAddress);
 		try {
+			//Telling hegira-api that we are ready to receive commands
 			serviceQueue.announcePresence();
-			serviceQueue.receiveCommands();
+			
+			while(true){
+				
+				ServiceQueueMessage sqm = serviceQueue.receiveCommands();
+				
+				switch(sqm.getCommand()){
+					case "switchover":
+						if(cli.componentType.equals("SRC")){
+							log.debug("Received command message, destined to: SRC");
+		            		}else if(cli.componentType.equals("TWC")){
+		            			log.debug("Received command message, destined to: TWC");
+		            		}
+						
+						break;
+					default:
+						break;
+				}
+			}
 		} catch (QueueException e) {
 			log.error(DefaultErrors.queueError);
 			log.error(e.getMessage());

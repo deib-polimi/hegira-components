@@ -127,45 +127,37 @@ public class ServiceQueue {
 		publish(API_PUBLISH_RK, LISTEN_RK.getBytes());
 	}
 	
-	public void receiveCommands() throws QueueException{
-		while(true){
-			/**
-			 * QueueingConsumer.nextDelivery() blocks 
-			 * until another message has been delivered from the server.
-			 */
-			QueueingConsumer.Delivery delivery;
-			try {
-				delivery = consumer.nextDelivery();
-				byte[] message = delivery.getBody();
-            		String routingKey = delivery.getEnvelope().getRoutingKey();
-            		
-            		try{
-					ServiceQueueMessage sqm = (ServiceQueueMessage) DefaultSerializer.deserialize(message);
-					switch(sqm.getCommand()){
-						case "switchover":
-							if(LISTEN_RK.equals("SRC")){
-		            				
-			            		}else if(LISTEN_RK.equals("TWC")){
-			            			
-			            		}
-							log.debug("Received command message");
-							break;
-						default:
-							break;
-					}
-					
-            		} catch (ClassNotFoundException | IOException e) {
-					// TODO Auto-generated catch block
-            			
-					e.printStackTrace();
-				}
-            		
-            		
-			} catch (ShutdownSignalException | ConsumerCancelledException
-					| InterruptedException e) {
-				throw new QueueException();
-			}	
+	public ServiceQueueMessage receiveCommands() throws QueueException{
+		
+		/**
+		 * QueueingConsumer.nextDelivery() blocks 
+		 * until another message has been delivered from the server.
+		 */
+		QueueingConsumer.Delivery delivery;
+		try {
+			log.debug("waiting for messages");
+			delivery = consumer.nextDelivery();
+			byte[] message = delivery.getBody();
+        		//String routingKey = delivery.getEnvelope().getRoutingKey();
+        		
+        		try{
+				ServiceQueueMessage sqm = (ServiceQueueMessage) DefaultSerializer.deserialize(message);
+				return sqm;
+				
+        		} catch (ClassNotFoundException | IOException e) {
+				// TODO Auto-generated catch block
+        			
+				e.printStackTrace();
+			}
+        		
+        		
+		} catch (ShutdownSignalException | ConsumerCancelledException
+				| InterruptedException e) {
+			throw new QueueException();
 		}
+		
+		return null;	
+		
 	}
 	
 	public QueueingConsumer getConsumer(){
