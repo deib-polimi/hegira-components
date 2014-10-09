@@ -20,6 +20,11 @@ public class Constants {
 	public static final String QUEUE_PATH = "queue.properties";
 	
 	/**
+	 * CREDENTIALS FILE PATH
+	 */
+	public static final String CREDENTIALS_PATH = "credentials.properties";
+	
+	/**
 	* STATUS RESPONSE
 	*/
 	public static final String STATUS_SUCCESS = "OK";
@@ -71,4 +76,5 @@ public class Constants {
 	*/
 	public static final String PRODUCER = "producer";
 	public static final String CONSUMER = "consumer";
+
 }
