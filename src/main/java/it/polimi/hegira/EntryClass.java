@@ -35,7 +35,13 @@ public class EntryClass {
 		ServiceQueue serviceQueue = new ServiceQueue(cli.componentType, cli.queueAddress);
 		try {
 			//Telling hegira-api that we are ready to receive commands
-			serviceQueue.announcePresence();
+			try{
+				serviceQueue.announcePresence();
+			}catch(QueueException | NullPointerException ex){
+				log.error("Unable to connect to the Queue. The program threw the following exception: ", ex);
+				return;
+			}
+			
 			/**
 			 * Continuously waiting for command messages.
 			 * Actions to message should be executed by threads, 
