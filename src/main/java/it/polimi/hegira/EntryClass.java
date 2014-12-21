@@ -60,8 +60,14 @@ public class EntryClass {
 		            			log.debug("Received command message, destined to: TWC");
 		            		}
 						
+						
+						//Telling hegira-api that we are ready to receive other commands
+						serviceQueue.announcePresence();
 						break;
 					default:
+						log.debug("Received command message: "+sqm.getCommand());
+						//Telling hegira-api that we are ready to receive other commands
+						serviceQueue.announcePresence();
 						break;
 				}
 			}
