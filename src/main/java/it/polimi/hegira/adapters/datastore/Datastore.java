@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TBinaryProtocol;
 
 import com.google.appengine.api.datastore.Cursor;
 import com.google.appengine.api.datastore.DatastoreService;
@@ -23,7 +26,10 @@ import com.google.appengine.api.datastore.Entity;
 
 import it.polimi.hegira.adapters.AbstractDatabase;
 import it.polimi.hegira.exceptions.ConnectException;
+import it.polimi.hegira.exceptions.QueueException;
+import it.polimi.hegira.models.DatastoreModel;
 import it.polimi.hegira.models.Metamodel;
+import it.polimi.hegira.transformers.DatastoreTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
@@ -45,9 +51,84 @@ public class Datastore extends AbstractDatabase {
 	}
 
 	@Override
-	protected Metamodel toMyModel(AbstractDatabase model) {
-		// TODO Auto-generated method stub
+	protected Metamodel toMyModel(AbstractDatabase db) {
+		//TODO: implement VDPs retrieval
+		
+		Datastore datastore = (Datastore) db;
+		List<String> kinds = datastore.getAllKinds();
+		
+		for(String kind : kinds){
+			long i=0, previousQueueCheckTime=0;
+			int queueElements=0;
+			
+			//Create a new instance of the Thrift Serializer
+	        TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+	        //Datastore cursor to scan a kind
+	        Cursor cursor = null;
+	        
+	        while(true){
+	        		QueryResultList<Entity> results = datastore.getEntitiesByKind_withCursor(kind, cursor, 300);
+	        		
+	        		//CURSOR CODE
+	        		Cursor newcursor = getNextCursor(results);
+				/**
+				 * newcursor is null if the query result cannot be resumed;
+				 * newcursor is equal to cursor if all entities have been read.
+				 */
+				if(newcursor==null || newcursor.equals(cursor)) break;
+				else cursor = newcursor;
+				
+				//PRODUCTION CODE
+				for(Entity entity : results){
+					DatastoreModel dsModel = new DatastoreModel(entity);
+					dsModel.setAncestorString(entity.getKey().toString());
+					DatastoreTransformer dt = new DatastoreTransformer();
+					Metamodel myModel = dt.toMyModel(dsModel);
+					
+					if(myModel!=null){
+						try {
+							taskQueue.publish(serializer.serialize(myModel));
+							i++;
+						} catch (QueueException | TException e) {
+							log.error("Serialization Error: ", e);
+						}
+					}
+				}
+				log.debug(Thread.currentThread().getName()+" Produced: "+i+" entities");
+				
+				
+	        }
+		}
 		return null;
+	}
+	
+	/**
+	 * Returns the next cursor relative to the given list of entities.
+	 * @param results The list of entities.
+	 * @return	The next cursor. <code>null</code> if the query result cannot be resumed;
+	 */
+	private Cursor getNextCursor(QueryResultList<Entity> results){
+		//trying to minimize undocumented errors from the Datastore
+		boolean proofCursor = true;
+		int timeout_ms=100, retries=10;
+		
+		Cursor newcursor=null;
+		while(proofCursor && retries>0){
+			try{
+				newcursor = results.getCursor();
+				proofCursor = false;
+			}catch(Exception e){
+				log.error("\n\n\n\n\t\tUndocumented Error !!! "+e.getMessage()+"\n\n\n");
+				try {
+					Thread.sleep(timeout_ms);
+					if(timeout_ms<5000) timeout_ms*=2;
+				} catch (InterruptedException e1){
+					proofCursor=false;
+				}
+				retries--;
+			}
+		}
+		return newcursor;
 	}
 
 	@Override

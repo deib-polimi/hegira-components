@@ -3,14 +3,19 @@
  */
 package it.polimi.hegira;
 
+import java.util.HashMap;
+
 import org.apache.log4j.Logger;
 
 import com.beust.jcommander.JCommander;
 
+import it.polimi.hegira.adapters.AbstractDatabase;
+import it.polimi.hegira.adapters.DatabaseFactory;
 import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.queue.ServiceQueue;
 import it.polimi.hegira.queue.ServiceQueueMessage;
 import it.polimi.hegira.utils.CLI;
+import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 
 /**
@@ -56,10 +61,23 @@ public class EntryClass {
 					case "switchover":
 						if(cli.componentType.equals("SRC")){
 							log.debug("Received command message, destined to: SRC");
+							HashMap<String, String> options_producer = new HashMap<String,String>();
+							options_producer.put("mode", Constants.PRODUCER);
+							
+							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
+							src.switchOver("SRC");
 		            		}else if(cli.componentType.equals("TWC")){
 		            			log.debug("Received command message, destined to: TWC");
+		            			HashMap<String, String> options_consumer = new HashMap<String,String>();
+		        				options_consumer.put("mode", Constants.CONSUMER);
+		        				if(sqm.getThreads()>=1){
+		        					options_consumer.put("threads", ""+sqm.getThreads());
+		        				}
+		        				
+		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
+		        						options_consumer);
+		        				dst.switchOver("TWC");
 		            		}
-						
 						
 						//Telling hegira-api that we are ready to receive other commands
 						serviceQueue.announcePresence();

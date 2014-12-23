@@ -6,9 +6,15 @@ import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import org.apache.log4j.Logger;
 
 public abstract class AbstractDatabase implements Runnable{
-	private TaskQueue taskQueue;
+	protected TaskQueue taskQueue;
+	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
+	protected int THREADS_NO = 10;
 	
 	/**
 	* Constructs a general database object
@@ -53,12 +59,33 @@ public abstract class AbstractDatabase implements Runnable{
 	
 	/**
 	 * Template method
-	 * @param destination
+	 * @param component
 	 * @return
 	 */
-	public final boolean switchOver(AbstractDatabase destination){
-		return false;
-		//TODO implement switchover
+	public final boolean switchOver(String component){
+		final AbstractDatabase thiz = this;
+		if(component.equals("SRC")){
+			(new Thread() {
+				@Override public void run() {
+					try {
+						thiz.connect();
+						toMyModel(thiz);
+					} catch (ConnectException e) {
+						e.printStackTrace();
+					} finally{
+						thiz.disconnect();
+					}     
+				}
+			}).start();
+		}else if(component.equals("TWC")){
+			//executing the consumers
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
+			for(int i=0;i<thiz.THREADS_NO;i++){
+				executor.execute(thiz);
+			}
+		}
+		return true;
 	}
 	
 	@Override
