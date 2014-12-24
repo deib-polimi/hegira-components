@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -23,12 +24,16 @@ import com.google.appengine.api.datastore.QueryResultList;
 import com.google.appengine.tools.remoteapi.RemoteApiInstaller;
 import com.google.appengine.tools.remoteapi.RemoteApiOptions;
 import com.google.appengine.api.datastore.Entity;
+import com.rabbitmq.client.ConsumerCancelledException;
+import com.rabbitmq.client.QueueingConsumer.Delivery;
+import com.rabbitmq.client.ShutdownSignalException;
 
 import it.polimi.hegira.adapters.AbstractDatabase;
 import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.DatastoreModel;
 import it.polimi.hegira.models.Metamodel;
+import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.transformers.DatastoreTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
@@ -46,8 +51,54 @@ public class Datastore extends AbstractDatabase {
 
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
-		// TODO Auto-generated method stub
-		return null;
+		// TRC
+		log.debug(Thread.currentThread().getName()+" Hi I'm the GAE consumer!");
+		List<Entity> batch = new ArrayList<Entity>();
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		long k = 0;
+		while(true){
+			log.debug(Thread.currentThread().getName()+" Extracting from the queue");
+			
+			try {
+				Delivery delivery = taskQueue.getConsumer().nextDelivery(2000);
+				if(delivery!=null){
+					Metamodel myModel = new Metamodel();
+					deserializer.deserialize(myModel, delivery.getBody());
+					
+					DatastoreTransformer dt = new DatastoreTransformer(ds);
+					DatastoreModel fromMyModel = dt.fromMyModel(myModel);
+					
+					batch.add(fromMyModel.getEntity());
+					batch.add(fromMyModel.getFictitiousEntity());
+					
+					taskQueue.sendAck(delivery.getEnvelope().getDeliveryTag());
+					k++;
+					
+					if(k%100==0){
+						putBatch(batch);
+						log.debug(Thread.currentThread().getName()+" ===>100 entities. putting normal batch");
+						batch = new ArrayList<Entity>();
+					}else{
+						if(k>0){
+							log.debug(Thread.currentThread().getName()+" ===>Nothing in the queue for me!");
+							putBatch(batch);
+							log.debug(Thread.currentThread().getName()+" ===>less than 100 entities. putting short batch");
+							batch = new ArrayList<Entity>();
+							k=0;
+						}
+					}
+				}
+			} catch (ShutdownSignalException | ConsumerCancelledException
+					| InterruptedException e) {
+				log.error("Error consuming from the queue "+TaskQueue.getDefaultTaskQueueName(),
+						e);
+			} catch (TException e) {
+				log.error("Errore deserializing", e);
+			} catch (QueueException e) {
+				log.error("Couldn't send the ack to the queue "+TaskQueue.getDefaultTaskQueueName(),
+						e);
+			}
+		}
 	}
 
 	@Override
@@ -96,8 +147,10 @@ public class Datastore extends AbstractDatabase {
 				}
 				log.debug(Thread.currentThread().getName()+" Produced: "+i+" entities");
 				
-				
+				if(i%5000==0)
+					taskQueue.slowDownProduction();
 	        }
+	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities.");
 		}
 		return null;
 	}

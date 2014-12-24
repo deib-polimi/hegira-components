@@ -128,7 +128,65 @@ public class TaskQueue {
 		}
 	}
 	
+	/**
+	 * Returns an approxiamation of the messages present in the queue.
+	 * NB. Sometimes the count may be 0.
+	 * @param queue_name The name of the queue to query.
+	 * @return	The number of messages in the queue.
+	 */
+	public int getMessageCount(String queue_name){
+		try {
+			return channel.queueDeclarePassive(queue_name).getMessageCount();
+		} catch (IOException e) {
+			log.debug("Error reading message count from "+queue_name, e);
+			return 0;
+		}
+	}
+	
 	public QueueingConsumer getConsumer(){
 		return consumer;
+	}
+	
+	public static String getDefaultTaskQueueName(){
+		return TASK_QUEUE_NAME;
+	}
+	
+	public void slowDownProduction(){
+		int queueElements = 0;
+		long previousQueueCheckTime=0;
+		
+		if(queueElements>0 && previousQueueCheckTime>0){
+			
+			int messageCount = getMessageCount(TASK_QUEUE_NAME);
+			
+			//Producer is faster then consumers
+			if(messageCount-queueElements>0 && messageCount>50000){
+				long consumingRate = (messageCount-queueElements)/
+						(System.currentTimeMillis() - previousQueueCheckTime);
+			
+				if(consumingRate<=0) consumingRate=1;
+				/*
+				 * How much time should I wait to lower the queue to 50'000entities?
+				 * t = (messageCount(ent) - 50000(ent))/consumingRate(ms)
+				 * Anyway, wait no more than 40s
+				 */
+				long t = (messageCount - 50000)/consumingRate;
+				if(t>40000) t=40000;
+				if(t<0) t=0;
+				
+				log.debug("Consuming rate: "+consumingRate+"ent/ms. \tSlowing down ... wait "+t+" ms");
+				//Thread.currentThread().wait(t);
+				try {
+					Thread.sleep(t);
+				} catch (InterruptedException e) {
+					log.error("Cannot puase", e);
+				}
+				
+			}
+		
+			queueElements = getMessageCount(TASK_QUEUE_NAME);
+			previousQueueCheckTime = System.currentTimeMillis();
+			
+		}
 	}
 }
