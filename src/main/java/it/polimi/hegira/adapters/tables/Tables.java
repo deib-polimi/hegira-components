@@ -3,9 +3,15 @@ package it.polimi.hegira.adapters.tables;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TBinaryProtocol;
 
 import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
 import com.microsoft.windowsazure.services.core.storage.ResultContinuation;
@@ -17,10 +23,18 @@ import com.microsoft.windowsazure.services.table.client.DynamicTableEntity;
 import com.microsoft.windowsazure.services.table.client.TableOperation;
 import com.microsoft.windowsazure.services.table.client.TableQuery;
 import com.microsoft.windowsazure.services.table.client.TableResult;
+import com.rabbitmq.client.ConsumerCancelledException;
+import com.rabbitmq.client.QueueingConsumer.Delivery;
+import com.rabbitmq.client.ShutdownSignalException;
 
 import it.polimi.hegira.adapters.AbstractDatabase;
 import it.polimi.hegira.exceptions.ConnectException;
+import it.polimi.hegira.exceptions.QueueException;
+import it.polimi.hegira.exceptions.TablesReadException;
+import it.polimi.hegira.models.AzureTablesModel;
 import it.polimi.hegira.models.Metamodel;
+import it.polimi.hegira.queue.TaskQueue;
+import it.polimi.hegira.transformers.AzureTablesTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
@@ -32,21 +46,117 @@ public class Tables extends AbstractDatabase {
 	
 	public Tables(Map<String, String> options) {
 		super(options);
-		// TODO Auto-generated constructor stub
+		if(options.get("threads")!=null)
+			this.THREADS_NO = Integer.parseInt(options.get("threads"));
 	}
 
+	long count = 1;
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
-		// TODO Auto-generated method stub
-		return null;
+		//TWC
+		log.debug(Thread.currentThread().getName()+" Hi I'm the AZURE consumer!");
+		//Instantiate the Thrift Deserializer
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		
+		while(true){
+			try {
+				Delivery delivery = taskQueue.getConsumer().nextDelivery();
+				if(delivery!=null){
+					Metamodel myModel = new Metamodel();
+					deserializer.deserialize(myModel, delivery.getBody());
+					
+					AzureTablesTransformer att = new AzureTablesTransformer();
+					AzureTablesModel fromMyModel = att.fromMyModel(myModel);
+					List<DynamicTableEntity> entities = fromMyModel.getEntities();
+					
+					taskQueue.sendAck(delivery);
+					
+					String tableName = fromMyModel.getTableName();
+					createTable(tableName);
+					for(DynamicTableEntity entity : entities){
+						insertEntity(tableName, entity);
+						count++;
+						if(count%2000==0)
+							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
+					}
+					
+				}else{
+					log.debug(Thread.currentThread().getName() + " - The queue " +
+							TaskQueue.getDefaultTaskQueueName() + " is empty");
+				}
+			} catch (ShutdownSignalException | ConsumerCancelledException
+					| InterruptedException e) {
+				log.error(Thread.currentThread().getName() + " - Cannot read next delivery from the queue " + 
+					TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (TException e) {
+				log.error(Thread.currentThread().getName() + " - Error deserializing message ", e);
+			} catch (QueueException e) {
+				log.error(Thread.currentThread().getName() + " - Error sending an acknowledgment to the queue " + 
+						TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (URISyntaxException e) {
+				log.error(Thread.currentThread().getName() + " - Error operating on Azure Tables ", e);
+			} catch (StorageException e) {
+				log.error(Thread.currentThread().getName() + " - Error storing data on Azure Tables ", e);
+			}
+		}
 	}
 
 	@Override
-	protected Metamodel toMyModel(AbstractDatabase model) {
-		// TODO Auto-generated method stub
+	protected Metamodel toMyModel(AbstractDatabase db) {
+		Tables azure = (Tables) db;
+		Iterable<String> tablesList = azure.getTablesList();
+		
+		for(String table : tablesList){
+			TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+			ResultContinuation[] continuationToken = null;
+			
+			while(true){
+				try {
+					//ContinuationToken is passed by reference
+					ArrayList<DynamicTableEntity> results = readSegment(table, continuationToken);
+					for(DynamicTableEntity entity : results){
+						AzureTablesModel model = new AzureTablesModel(table, entity);
+						AzureTablesTransformer transformer = new AzureTablesTransformer();
+						Metamodel myModel = transformer.toMyModel(model);
+						taskQueue.publish(serializer.serialize(myModel));
+					}
+				} catch (TablesReadException e) {
+					log.debug(e.getMessage());
+					break;
+				} catch (QueueException e) {
+					log.error(Thread.currentThread().getName() + " - Error communicating with the queue " + 
+							TaskQueue.getDefaultTaskQueueName(), e);
+				} catch (TException e) {
+					log.error(Thread.currentThread().getName() + " - Error serializing message ", e);
+				}
+				
+			}
+		}
 		return null;
 	}
 
+	private ArrayList<DynamicTableEntity> readSegment(String tableName, ResultContinuation[] continuationToken) throws TablesReadException{
+		int noEntities = 1000;
+		ArrayList<DynamicTableEntity> results = new ArrayList<DynamicTableEntity>(noEntities);
+		boolean proof = true;
+		while(proof){
+			try {
+				ResultSegment<DynamicTableEntity> segment = 
+						getEntities_withRange(tableName, continuationToken, noEntities);
+				results = segment.getResults();
+				continuationToken[0] = segment.getContinuationToken();
+				proof = false;
+				
+				if(!segment.getHasMoreResults())
+					throw new TablesReadException("No more entities to read");
+			} catch (InvalidKeyException | URISyntaxException | IOException
+					| StorageException e) {
+				log.error(Thread.currentThread().getName() + " - Error reading segment from Azure Tables ", e);
+			}
+		}
+		return results;
+	}
+	
 	/**
 	 * Checks if a connection has already been established
 	 * @return true if connected, false if not.
@@ -195,13 +305,13 @@ public class Tables extends AbstractDatabase {
 	 * @throws StorageException
 	 */
 	public ResultSegment<DynamicTableEntity> getEntities_withRange(String tableName,
-			ResultContinuation continuationToken,
+			ResultContinuation[] continuationToken,
 			int pageSize) throws InvalidKeyException, URISyntaxException, IOException, StorageException{
 		if(isConnected()){
 			TableQuery<DynamicTableEntity> partitionQuery =
 				    TableQuery.from(tableName, DynamicTableEntity.class).take(pageSize);
 			
-			return tableClient.executeSegmented(partitionQuery, continuationToken);
+			return tableClient.executeSegmented(partitionQuery, continuationToken[0]);
 		}else{
 			log.info(DefaultErrors.notConnected);
 			return null;
