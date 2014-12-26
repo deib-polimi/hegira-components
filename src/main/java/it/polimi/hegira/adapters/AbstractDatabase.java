@@ -4,6 +4,7 @@ import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
+import it.polimi.hegira.utils.Constants;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -25,8 +26,22 @@ public abstract class AbstractDatabase implements Runnable{
 	*/
 	protected AbstractDatabase(Map<String, String> options){
 		try {
-			taskQueue = new TaskQueue(options.get("mode"), Integer.parseInt(options.get("threads")), 
-					options.get("queue-address"));
+			switch(options.get("mode")){
+				case Constants.PRODUCER:
+					taskQueue = new TaskQueue(options.get("mode"), 0, 
+							options.get("queue-address"));
+					break;
+				case Constants.CONSUMER:
+					taskQueue = new TaskQueue(options.get("mode"), 
+							Integer.parseInt(options.get("threads")), 
+							options.get("queue-address"));
+					break;
+				default:
+					log.error(Thread.currentThread().getName()+
+							"Unsuported mode: "+options.get("mode"));
+					return;
+			}
+			
 		} catch (NumberFormatException | QueueException e) {
 			e.printStackTrace();
 			return;

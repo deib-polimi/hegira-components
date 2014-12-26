@@ -16,9 +16,11 @@ public class PropertiesManager {
 		Properties props = new Properties();
 		try {
 			log.debug("Trying to read "+Constants.CREDENTIALS_PATH);
-			URL systemResource = Thread.currentThread().getContextClassLoader().getResource(Constants.CREDENTIALS_PATH);
-			log.debug("Loaded "+systemResource);
-			InputStream isr = new FileInputStream(systemResource.getFile());
+			//URL systemResource = Thread.currentThread().getContextClassLoader().getResource(Constants.CREDENTIALS_PATH);
+			//log.debug("Loaded "+systemResource);
+			//InputStream isr = new FileInputStream(systemResource.getFile());
+			InputStream isr = PropertiesManager.class.getResourceAsStream("/"+Constants.CREDENTIALS_PATH);
+			
 			if (isr == null){
 				throw new FileNotFoundException(Constants.CREDENTIALS_PATH+" must exist.");
 			}

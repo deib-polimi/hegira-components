@@ -168,7 +168,8 @@ public class Tables extends AbstractDatabase {
 	@Override
 	public void connect() throws ConnectException {
 		if(!isConnected()){
-			String credentials = PropertiesManager.getCredentials(Constants.AZURE_PROP);
+			String credentials = PropertiesManager.getCredentials(Constants.AZURE_PROP
+					+".UNOFFICIAL");
 			//log.debug(Constants.AZURE_PROP+" = "+credentials);
 			try {
 				account = CloudStorageAccount.parse(credentials);
