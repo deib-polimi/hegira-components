@@ -38,14 +38,27 @@ public class AzureTablesTransformer implements ITransformer<AzureTablesModel>{
 
 	@Override
 	public Metamodel toMyModel(AzureTablesModel model) {
-		// TODO Auto-generated method stub
-		return null;
+		Metamodel metamodel = new Metamodel();
+		mapRowKey(metamodel, model);
+		mapPartitionGroup(metamodel, model);
+		mapColumnFamilies(metamodel, model);
+		//maps to just one column family
+		mapColumns(metamodel, model, model.getTableName());
+		
+		return metamodel;
 	}
 
 	@Override
-	public AzureTablesModel fromMyModel(Metamodel model) {
-		// TODO Auto-generated method stub
-		return null;
+	public AzureTablesModel fromMyModel(Metamodel metamodel) {
+		AzureTablesModel model = new AzureTablesModel();
+		String partitionGroup = metamodel.getPartitionGroup();
+		mapTable(partitionGroup, model);
+
+		List<DynamicTableEntity> entities = mapRows(metamodel, partitionGroup);
+		
+		//Sets a list of entities to be contained by the same table
+		model.setEntities(entities);
+		return model;
 	}
 
 	/*---------------------------------------------------------------------------------*/

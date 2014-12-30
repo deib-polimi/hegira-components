@@ -51,16 +51,17 @@ public class Datastore extends AbstractDatabase {
 
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
-		// TRC
+		// TWC
 		log.debug(Thread.currentThread().getName()+" Hi I'm the GAE consumer!");
 		List<Entity> batch = new ArrayList<Entity>();
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
 		long k = 0;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		while(true){
 			log.debug(Thread.currentThread().getName()+" Extracting from the queue");
 			
 			try {
-				Delivery delivery = taskQueue.getConsumer().nextDelivery(2000);
+				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery(2000);
 				if(delivery!=null){
 					Metamodel myModel = new Metamodel();
 					deserializer.deserialize(myModel, delivery.getBody());
@@ -71,7 +72,7 @@ public class Datastore extends AbstractDatabase {
 					batch.add(fromMyModel.getEntity());
 					batch.add(fromMyModel.getFictitiousEntity());
 					
-					taskQueue.sendAck(delivery.getEnvelope().getDeliveryTag());
+					taskQueues.get(thread_id).sendAck(delivery.getEnvelope().getDeliveryTag());
 					k++;
 					
 					if(k%100==0){
@@ -107,6 +108,7 @@ public class Datastore extends AbstractDatabase {
 		
 		Datastore datastore = (Datastore) db;
 		List<String> kinds = datastore.getAllKinds();
+		int thread_id = 0;
 		
 		for(String kind : kinds){
 			long i=0, previousQueueCheckTime=0;
@@ -138,7 +140,7 @@ public class Datastore extends AbstractDatabase {
 					
 					if(myModel!=null){
 						try {
-							taskQueue.publish(serializer.serialize(myModel));
+							taskQueues.get(thread_id).publish(serializer.serialize(myModel));
 							i++;
 						} catch (QueueException | TException e) {
 							log.error("Serialization Error: ", e);
@@ -148,9 +150,9 @@ public class Datastore extends AbstractDatabase {
 				log.debug(Thread.currentThread().getName()+" Produced: "+i+" entities");
 				
 				if(i%5000==0)
-					taskQueue.slowDownProduction();
+					taskQueues.get(0).slowDownProduction();
 	        }
-	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities.");
+	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities of kind "+kind);
 		}
 		return null;
 	}

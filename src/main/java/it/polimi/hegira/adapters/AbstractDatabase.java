@@ -6,6 +6,7 @@ import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.utils.Constants;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,9 +14,11 @@ import java.util.concurrent.Executors;
 import org.apache.log4j.Logger;
 
 public abstract class AbstractDatabase implements Runnable{
-	protected TaskQueue taskQueue;
+	//protected TaskQueue taskQueue;
+	protected ArrayList<TaskQueue> taskQueues;
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
-	protected int THREADS_NO = 10;
+	protected int THREADS_NO = 0;
+	//protected int thread_id;
 	
 	/**
 	* Constructs a general database object
@@ -28,13 +31,23 @@ public abstract class AbstractDatabase implements Runnable{
 		try {
 			switch(options.get("mode")){
 				case Constants.PRODUCER:
-					taskQueue = new TaskQueue(options.get("mode"), 0, 
-							options.get("queue-address"));
+					taskQueues=new ArrayList<TaskQueue>(1);
+					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
+							options.get("queue-address")));
 					break;
 				case Constants.CONSUMER:
-					taskQueue = new TaskQueue(options.get("mode"), 
+					int threads=10;
+					if(options.get("threads")!=null){
+						threads = Integer.parseInt(options.get("threads"));
+						taskQueues=new ArrayList<TaskQueue>(threads);
+					}else
+						taskQueues=new ArrayList<TaskQueue>(threads);
+
+					this.THREADS_NO=threads;
+					for(int i=0;i<threads;i++)
+						taskQueues.add(new TaskQueue(options.get("mode"), 
 							Integer.parseInt(options.get("threads")), 
-							options.get("queue-address"));
+							options.get("queue-address")));
 					break;
 				default:
 					log.error(Thread.currentThread().getName()+
@@ -79,9 +92,11 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	public final boolean switchOver(String component){
 		final AbstractDatabase thiz = this;
+		
 		if(component.equals("SRC")){
 			(new Thread() {
 				@Override public void run() {
+					//thread_id=0;
 					try {
 						thiz.connect();
 						toMyModel(thiz);
@@ -97,6 +112,7 @@ public abstract class AbstractDatabase implements Runnable{
 			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
 			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
 			for(int i=0;i<thiz.THREADS_NO;i++){
+				//thread_id=i;
 				executor.execute(thiz);
 			}
 		}
@@ -105,8 +121,14 @@ public abstract class AbstractDatabase implements Runnable{
 	
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-		
+		try {
+			this.connect();
+			log.debug("Starting consumer thread");
+			this.fromMyModel(null);
+		} catch (ConnectException e) {
+			log.error(Thread.currentThread().getName() +
+					" Unable to connect to the destination database!", e);
+		}	
 	}
 
 }

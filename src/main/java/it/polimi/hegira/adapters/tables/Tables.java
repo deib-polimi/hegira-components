@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -41,13 +43,26 @@ import it.polimi.hegira.utils.PropertiesManager;
 
 public class Tables extends AbstractDatabase {
 	private transient Logger log = Logger.getLogger(Tables.class);
-	private CloudStorageAccount account;
-	private CloudTableClient tableClient;
+	//private CloudStorageAccount account;
+	//private CloudTableClient tableClient;
+	
+	private class ConnectionObject{
+		public ConnectionObject(CloudStorageAccount account,CloudTableClient tableClient){
+			this.account=account;
+			this.tableClient=tableClient;
+		}
+		protected CloudStorageAccount account;
+		protected CloudTableClient tableClient;
+	}
+	
+	private ArrayList<ConnectionObject> connectionList;
 	
 	public Tables(Map<String, String> options) {
 		super(options);
-		if(options.get("threads")!=null)
-			this.THREADS_NO = Integer.parseInt(options.get("threads"));
+		if(THREADS_NO>0){
+			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
+		}else
+			connectionList = new ArrayList<ConnectionObject>(1);
 	}
 
 	long count = 1;
@@ -55,12 +70,17 @@ public class Tables extends AbstractDatabase {
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
 		//TWC
 		log.debug(Thread.currentThread().getName()+" Hi I'm the AZURE consumer!");
+		
 		//Instantiate the Thrift Deserializer
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		
 		while(true){
 			try {
-				Delivery delivery = taskQueue.getConsumer().nextDelivery();
+
+				log.debug(Thread.currentThread().getName() + 
+						" - getting taskQueue with id: "+thread_id);
+				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery();
 				if(delivery!=null){
 					Metamodel myModel = new Metamodel();
 					deserializer.deserialize(myModel, delivery.getBody());
@@ -68,8 +88,7 @@ public class Tables extends AbstractDatabase {
 					AzureTablesTransformer att = new AzureTablesTransformer();
 					AzureTablesModel fromMyModel = att.fromMyModel(myModel);
 					List<DynamicTableEntity> entities = fromMyModel.getEntities();
-					
-					taskQueue.sendAck(delivery);
+					taskQueues.get(thread_id).sendAck(delivery);
 					
 					String tableName = fromMyModel.getTableName();
 					createTable(tableName);
@@ -105,6 +124,7 @@ public class Tables extends AbstractDatabase {
 	protected Metamodel toMyModel(AbstractDatabase db) {
 		Tables azure = (Tables) db;
 		Iterable<String> tablesList = azure.getTablesList();
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		
 		for(String table : tablesList){
 			TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
@@ -118,7 +138,7 @@ public class Tables extends AbstractDatabase {
 						AzureTablesModel model = new AzureTablesModel(table, entity);
 						AzureTablesTransformer transformer = new AzureTablesTransformer();
 						Metamodel myModel = transformer.toMyModel(model);
-						taskQueue.publish(serializer.serialize(myModel));
+						taskQueues.get(thread_id).publish(serializer.serialize(myModel));
 					}
 				} catch (TablesReadException e) {
 					log.debug(e.getMessage());
@@ -162,7 +182,16 @@ public class Tables extends AbstractDatabase {
 	 * @return true if connected, false if not.
 	 */
 	public boolean isConnected(){
-		return (account==null || tableClient==null) ? false : true;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		try{
+			ConnectionObject connection = connectionList.get(thread_id);
+			return (connection==null|| connection.account==null || connection.tableClient==null)
+					? false : true;
+		}catch(IndexOutOfBoundsException e){
+			return false;
+		}
+		
+		//return (account==null || tableClient==null) ? false : true;
 	}
 	
 	@Override
@@ -172,9 +201,12 @@ public class Tables extends AbstractDatabase {
 					+".UNOFFICIAL");
 			//log.debug(Constants.AZURE_PROP+" = "+credentials);
 			try {
-				account = CloudStorageAccount.parse(credentials);
-				tableClient = account.createCloudTableClient();
-				log.debug("Connected");
+				CloudStorageAccount account = CloudStorageAccount.parse(credentials);
+				CloudTableClient tableClient = account.createCloudTableClient();
+				ConnectionObject co = new ConnectionObject(account, tableClient);
+				connectionList.add(co);
+				
+				log.debug(Thread.currentThread().getName()+" - Connected");
 			} catch (InvalidKeyException | URISyntaxException e) {
 				e.printStackTrace();
 				throw new ConnectException(DefaultErrors.connectionError);
@@ -186,10 +218,13 @@ public class Tables extends AbstractDatabase {
 
 	@Override
 	public void disconnect() {
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
-			account=null;
-			tableClient=null;
-			log.debug("Disconnected");
+			ConnectionObject connection = connectionList.get(thread_id);
+			
+			connection.account=null;
+			connection.tableClient=null;
+			log.debug(Thread.currentThread().getName()+" - Disconnected");
 		}else{
 			log.warn(DefaultErrors.notConnected);
 		}
@@ -203,12 +238,14 @@ public class Tables extends AbstractDatabase {
 	 * @throws URISyntaxException If the resource URI is invalid
 	 */
 	public CloudTable createTable(String tableName) throws URISyntaxException{
-		
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(tableName.indexOf("@")==0)
 			tableName=tableName.substring(1);
 		//log.debug("Creating table: "+tableName);
 		if(isConnected()){
-			CloudTable cloudTable = new CloudTable(tableName, tableClient);
+			ConnectionObject connection = connectionList.get(thread_id);
+			
+			CloudTable cloudTable = new CloudTable(tableName, connection.tableClient);
 			try {
 				cloudTable.createIfNotExist();
 			} catch (StorageException e) {
@@ -230,6 +267,7 @@ public class Tables extends AbstractDatabase {
 	 * @return A TableResult containing the result of executing the TableOperation on the table. The TableResult class encapsulates the HTTP response and any table entity results returned by the Storage Service REST API operation called for a particular TableOperation.
 	 */
 	public TableResult insertEntity(String tableName, DynamicTableEntity entity) throws StorageException{
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(tableName.indexOf("@")==0)
 			tableName=tableName.substring(1);
 		//log.debug("Inserting entity: "+entity.getRowKey()+" into "+tableName);
@@ -243,9 +281,10 @@ public class Tables extends AbstractDatabase {
 				try{
 					// Create an operation to add the new entity.
 					TableOperation insertion = TableOperation.insertOrMerge(entity);
-			
+					ConnectionObject connection = connectionList.get(thread_id);
+					
 					// Submit the operation to the table service.
-					return tableClient.execute(tableName, insertion);
+					return connection.tableClient.execute(tableName, insertion);
 				}catch(Exception e){
 					retries++;
 					log.error(Thread.currentThread().getName() + 
@@ -271,8 +310,10 @@ public class Tables extends AbstractDatabase {
 	 * @return A collection containing table's names as String
 	 */
 	public Iterable<String> getTablesList(){
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
-			Iterable<String> listTables = tableClient.listTables();		
+			ConnectionObject connection = connectionList.get(thread_id);
+			Iterable<String> listTables = connection.tableClient.listTables();		
 			return listTables;
 		}else{
 			log.info(DefaultErrors.notConnected);
@@ -285,10 +326,12 @@ public class Tables extends AbstractDatabase {
 	 * @return A collection containing table entities
 	 */
 	public Iterable<DynamicTableEntity> getEntitiesByTable(String tableName){
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			TableQuery<DynamicTableEntity> partitionQuery =
 				    TableQuery.from(tableName, DynamicTableEntity.class);
-			return tableClient.execute(partitionQuery);
+			ConnectionObject connection = connectionList.get(thread_id);
+			return connection.tableClient.execute(partitionQuery);
 		}else{
 			log.info(DefaultErrors.notConnected);
 			return null;
@@ -308,11 +351,12 @@ public class Tables extends AbstractDatabase {
 	public ResultSegment<DynamicTableEntity> getEntities_withRange(String tableName,
 			ResultContinuation[] continuationToken,
 			int pageSize) throws InvalidKeyException, URISyntaxException, IOException, StorageException{
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			TableQuery<DynamicTableEntity> partitionQuery =
 				    TableQuery.from(tableName, DynamicTableEntity.class).take(pageSize);
-			
-			return tableClient.executeSegmented(partitionQuery, continuationToken[0]);
+			ConnectionObject connection = connectionList.get(thread_id);
+			return connection.tableClient.executeSegmented(partitionQuery, continuationToken[0]);
 		}else{
 			log.info(DefaultErrors.notConnected);
 			return null;
@@ -320,18 +364,26 @@ public class Tables extends AbstractDatabase {
 	}
 	
 	public CloudStorageAccount getAccount() {
-		return account;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		ConnectionObject connection = connectionList.get(thread_id);
+		return connection.account;
 	}
 
 	public void setAccount(CloudStorageAccount account) {
-		this.account = account;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		ConnectionObject connection = connectionList.get(thread_id);
+		connection.account = account;
 	}
 
 	public CloudTableClient getTableClient() {
-		return tableClient;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		ConnectionObject connection = connectionList.get(thread_id);
+		return connection.tableClient;
 	}
 
 	public void setTableClient(CloudTableClient tableClient) {
-		this.tableClient = tableClient;
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		ConnectionObject connection = connectionList.get(thread_id);
+		connection.tableClient = tableClient;
 	}
 }
