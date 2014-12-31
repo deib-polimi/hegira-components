@@ -47,6 +47,7 @@ public class Tables extends AbstractDatabase {
 	//private CloudTableClient tableClient;
 	
 	private class ConnectionObject{
+		public ConnectionObject(){}
 		public ConnectionObject(CloudStorageAccount account,CloudTableClient tableClient){
 			this.account=account;
 			this.tableClient=tableClient;
@@ -61,8 +62,12 @@ public class Tables extends AbstractDatabase {
 		super(options);
 		if(THREADS_NO>0){
 			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
-		}else
+			for(int i=0;i<THREADS_NO;i++)
+				connectionList.add(new ConnectionObject());
+		}else{
 			connectionList = new ArrayList<ConnectionObject>(1);
+			connectionList.add(new ConnectionObject());
+		}
 	}
 
 	long count = 1;
@@ -91,9 +96,11 @@ public class Tables extends AbstractDatabase {
 					taskQueues.get(thread_id).sendAck(delivery);
 					
 					String tableName = fromMyModel.getTableName();
-					createTable(tableName);
+					CloudTable tbl = createTable(tableName);
+					if(tbl==null) return null;
 					for(DynamicTableEntity entity : entities){
-						insertEntity(tableName, entity);
+						TableResult ie = insertEntity(tableName, entity);
+						if(ie==null) return null;
 						count++;
 						if(count%2000==0)
 							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
@@ -124,25 +131,52 @@ public class Tables extends AbstractDatabase {
 	protected Metamodel toMyModel(AbstractDatabase db) {
 		Tables azure = (Tables) db;
 		Iterable<String> tablesList = azure.getTablesList();
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		
 		for(String table : tablesList){
 			TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
-			ResultContinuation[] continuationToken = null;
+			ResultContinuation[] continuationToken = new ResultContinuation[1];
+			continuationToken[0]=null;
 			
 			while(true){
 				try {
 					//ContinuationToken is passed by reference
-					ArrayList<DynamicTableEntity> results = readSegment(table, continuationToken);
+					int noEntities = 1000;
+					ArrayList<DynamicTableEntity> results = new ArrayList<DynamicTableEntity>(noEntities);
+					boolean proof = true;
+					ResultSegment<DynamicTableEntity> segment = null;
+					while(proof){
+						try {
+							segment = 
+									getEntities_withRange(table, continuationToken, noEntities);
+							results = segment.getResults();
+							continuationToken[0] = segment.getContinuationToken();
+							proof = false;
+							
+						} catch (InvalidKeyException | URISyntaxException | IOException
+								| StorageException e) {
+							log.error(Thread.currentThread().getName() + " - Error reading segment from Azure Tables ", e);
+						}
+					}
+					
+					
 					for(DynamicTableEntity entity : results){
 						AzureTablesModel model = new AzureTablesModel(table, entity);
 						AzureTablesTransformer transformer = new AzureTablesTransformer();
 						Metamodel myModel = transformer.toMyModel(model);
 						taskQueues.get(thread_id).publish(serializer.serialize(myModel));
 					}
-				} catch (TablesReadException e) {
-					log.debug(e.getMessage());
-					break;
+					
+					if(segment!=null){
+						if(!segment.getHasMoreResults()){
+							log.debug("No more entities to read in this table: "+table);
+							break;
+						}
+					}else{
+						break;
+					}
 				} catch (QueueException e) {
 					log.error(Thread.currentThread().getName() + " - Error communicating with the queue " + 
 							TaskQueue.getDefaultTaskQueueName(), e);
@@ -182,7 +216,9 @@ public class Tables extends AbstractDatabase {
 	 * @return true if connected, false if not.
 	 */
 	public boolean isConnected(){
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		try{
 			ConnectionObject connection = connectionList.get(thread_id);
 			return (connection==null|| connection.account==null || connection.tableClient==null)
@@ -196,6 +232,9 @@ public class Tables extends AbstractDatabase {
 	
 	@Override
 	public void connect() throws ConnectException {
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(!isConnected()){
 			String credentials = PropertiesManager.getCredentials(Constants.AZURE_PROP
 					+".UNOFFICIAL");
@@ -204,7 +243,7 @@ public class Tables extends AbstractDatabase {
 				CloudStorageAccount account = CloudStorageAccount.parse(credentials);
 				CloudTableClient tableClient = account.createCloudTableClient();
 				ConnectionObject co = new ConnectionObject(account, tableClient);
-				connectionList.add(co);
+				connectionList.add(thread_id,co);
 				
 				log.debug(Thread.currentThread().getName()+" - Connected");
 			} catch (InvalidKeyException | URISyntaxException e) {
@@ -218,7 +257,9 @@ public class Tables extends AbstractDatabase {
 
 	@Override
 	public void disconnect() {
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			ConnectionObject connection = connectionList.get(thread_id);
 			
@@ -253,7 +294,7 @@ public class Tables extends AbstractDatabase {
 			}
 			return cloudTable;
 		}else{
-			log.info(DefaultErrors.notConnected);
+			log.info(Thread.currentThread().getName()+" - "+DefaultErrors.notConnected);
 			return null;
 		}
 	}
@@ -301,7 +342,7 @@ public class Tables extends AbstractDatabase {
 			}
 			
 		}else{
-			log.info(DefaultErrors.notConnected);
+			log.info(Thread.currentThread().getName()+" - "+DefaultErrors.notConnected);
 			return null;
 		}
 	}
@@ -310,7 +351,9 @@ public class Tables extends AbstractDatabase {
 	 * @return A collection containing table's names as String
 	 */
 	public Iterable<String> getTablesList(){
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			ConnectionObject connection = connectionList.get(thread_id);
 			Iterable<String> listTables = connection.tableClient.listTables();		
@@ -326,7 +369,9 @@ public class Tables extends AbstractDatabase {
 	 * @return A collection containing table entities
 	 */
 	public Iterable<DynamicTableEntity> getEntitiesByTable(String tableName){
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			TableQuery<DynamicTableEntity> partitionQuery =
 				    TableQuery.from(tableName, DynamicTableEntity.class);
@@ -351,7 +396,9 @@ public class Tables extends AbstractDatabase {
 	public ResultSegment<DynamicTableEntity> getEntities_withRange(String tableName,
 			ResultContinuation[] continuationToken,
 			int pageSize) throws InvalidKeyException, URISyntaxException, IOException, StorageException{
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
 			TableQuery<DynamicTableEntity> partitionQuery =
 				    TableQuery.from(tableName, DynamicTableEntity.class).take(pageSize);
@@ -364,25 +411,33 @@ public class Tables extends AbstractDatabase {
 	}
 	
 	public CloudStorageAccount getAccount() {
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		ConnectionObject connection = connectionList.get(thread_id);
 		return connection.account;
 	}
 
 	public void setAccount(CloudStorageAccount account) {
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		ConnectionObject connection = connectionList.get(thread_id);
 		connection.account = account;
 	}
 
 	public CloudTableClient getTableClient() {
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		ConnectionObject connection = connectionList.get(thread_id);
 		return connection.tableClient;
 	}
 
 	public void setTableClient(CloudTableClient tableClient) {
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		ConnectionObject connection = connectionList.get(thread_id);
 		connection.tableClient = tableClient;
 	}

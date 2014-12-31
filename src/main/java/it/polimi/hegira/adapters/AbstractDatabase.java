@@ -37,11 +37,10 @@ public abstract class AbstractDatabase implements Runnable{
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
-					if(options.get("threads")!=null){
+					if(options.get("threads")!=null)
 						threads = Integer.parseInt(options.get("threads"));
-						taskQueues=new ArrayList<TaskQueue>(threads);
-					}else
-						taskQueues=new ArrayList<TaskQueue>(threads);
+					
+					taskQueues=new ArrayList<TaskQueue>(threads);
 
 					this.THREADS_NO=threads;
 					for(int i=0;i<threads;i++)
@@ -99,7 +98,7 @@ public abstract class AbstractDatabase implements Runnable{
 					//thread_id=0;
 					try {
 						thiz.connect();
-						toMyModel(thiz);
+						thiz.toMyModel(thiz);
 					} catch (ConnectException e) {
 						e.printStackTrace();
 					} finally{

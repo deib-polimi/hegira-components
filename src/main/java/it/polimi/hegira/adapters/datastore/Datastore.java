@@ -41,24 +41,45 @@ import it.polimi.hegira.utils.PropertiesManager;
 
 public class Datastore extends AbstractDatabase {
 	private static Logger log = Logger.getLogger(Datastore.class);
-	private RemoteApiInstaller installer;
-	private DatastoreService ds;
+	//private RemoteApiInstaller installer;
+	//private DatastoreService ds;
+	
+	private class ConnectionObject{
+		public ConnectionObject(){}
+		public ConnectionObject(RemoteApiInstaller installer, DatastoreService ds){
+			this.installer = installer;
+			this.ds = ds;
+		}
+		protected RemoteApiInstaller installer;
+		protected DatastoreService ds;
+	}
 	
 	public Datastore(Map<String, String> options) {
 		super(options);
-		// TODO Auto-generated constructor stub
+		if(THREADS_NO>0){
+			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
+			for(int i=0;i<THREADS_NO;i++)
+				connectionList.add(new ConnectionObject());
+		}else{
+			connectionList = new ArrayList<ConnectionObject>(1);
+			connectionList.add(new ConnectionObject());
+		}
 	}
 
+	private ArrayList<ConnectionObject> connectionList;
+	
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
 		// TWC
-		log.debug(Thread.currentThread().getName()+" Hi I'm the GAE consumer!");
+		//log.debug(Thread.currentThread().getName()+" Hi I'm the GAE consumer!");
 		List<Entity> batch = new ArrayList<Entity>();
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
 		long k = 0;
-		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		while(true){
-			log.debug(Thread.currentThread().getName()+" Extracting from the queue");
+			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+" THREADS_NO: "+THREADS_NO);
 			
 			try {
 				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery(2000);
@@ -66,7 +87,7 @@ public class Datastore extends AbstractDatabase {
 					Metamodel myModel = new Metamodel();
 					deserializer.deserialize(myModel, delivery.getBody());
 					
-					DatastoreTransformer dt = new DatastoreTransformer(ds);
+					DatastoreTransformer dt = new DatastoreTransformer(connectionList.get(thread_id).ds);
 					DatastoreModel fromMyModel = dt.fromMyModel(myModel);
 					
 					batch.add(fromMyModel.getEntity());
@@ -81,7 +102,7 @@ public class Datastore extends AbstractDatabase {
 						batch = new ArrayList<Entity>();
 					}else{
 						if(k>0){
-							log.debug(Thread.currentThread().getName()+" ===>Nothing in the queue for me!");
+							//log.debug(Thread.currentThread().getName()+" ===>Nothing in the queue for me!");
 							putBatch(batch);
 							log.debug(Thread.currentThread().getName()+" ===>less than 100 entities. putting short batch");
 							batch = new ArrayList<Entity>();
@@ -188,6 +209,9 @@ public class Datastore extends AbstractDatabase {
 
 	@Override
 	public void connect() throws ConnectException {
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(!isConnected()){
 			String username = PropertiesManager.getCredentials(Constants.DATASTORE_USERNAME);
 			String password = PropertiesManager.getCredentials(Constants.DATASTORE_PASSWORD);
@@ -196,10 +220,15 @@ public class Datastore extends AbstractDatabase {
         		.server(server, 443)
         		.credentials(username, password);
 			try {
-				log.debug("Logging into "+server);
-				installer = new RemoteApiInstaller();
+				log.debug(Thread.currentThread().getName()+" - Logging into "+server);
+				RemoteApiInstaller installer = new RemoteApiInstaller();
 				installer.install(options);
-				ds = DatastoreServiceFactory.getDatastoreService();
+				DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
+				ConnectionObject co = new ConnectionObject(installer, ds);
+				connectionList.add(thread_id,co);
+				log.debug(Thread.currentThread().getName()+" - Added connection object at "+
+				"position: "+connectionList.indexOf(co)+
+				" ThreadId%THREAD_NO="+thread_id);
 			} catch (IOException e) {
 				log.error(DefaultErrors.connectionError+"\nStackTrace:\n"+e.getStackTrace());
 				throw new ConnectException(DefaultErrors.connectionError);
@@ -215,16 +244,27 @@ public class Datastore extends AbstractDatabase {
 	 * @return true if connected, false if not.
 	 */
 	public boolean isConnected(){
-		return (installer==null || ds==null) ? false : true;
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		try{
+			return (connectionList.get(thread_id).installer==null || 
+					connectionList.get(thread_id).ds==null) ? false : true;
+		}catch(IndexOutOfBoundsException e){
+			return false;
+		}
 	}
 	
 	@Override
 	public void disconnect() {
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(isConnected()){
-			if(installer!=null)
-				installer.uninstall();
-			installer = null;
-			ds = null;
+			if(connectionList.get(thread_id).installer!=null)
+				connectionList.get(thread_id).installer.uninstall();
+			connectionList.get(thread_id).installer = null;
+			connectionList.get(thread_id).ds = null;
 			log.debug(Thread.currentThread().getName() + " Disconnected");
 		}else{
 			log.warn(DefaultErrors.notConnected);
@@ -236,10 +276,13 @@ public class Datastore extends AbstractDatabase {
 	 * @param batch
 	 */
 	private void putBatch(List<Entity> batch){
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		boolean proof = true;
 		while(proof){
 			try{
-				ds.put(batch);
+				connectionList.get(thread_id).ds.put(batch);
 				proof = false;
 			}catch(ConcurrentModificationException ex){
 				log.error(ex.getMessage()+"...retry");
@@ -254,8 +297,11 @@ public class Datastore extends AbstractDatabase {
     * @return An iterable containing all the entities
     */
    private Iterable<Entity> getEntitiesByKind(String kind){
+	   int thread_id = 0;
+	   if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
    		Query q = new Query(kind);
-   		PreparedQuery pq = ds.prepare(q);
+   		PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
    		return pq.asIterable();
    }
    
@@ -269,6 +315,9 @@ public class Datastore extends AbstractDatabase {
    private QueryResultList<Entity> getEntitiesByKind_withCursor(String kind, 
    		Cursor cursor, int pageSize){
 	   
+	   int thread_id = 0;
+	   if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
    		boolean proof = true;
    		QueryResultList<Entity> results = null;
 	   	/**
@@ -280,7 +329,7 @@ public class Datastore extends AbstractDatabase {
 		    		if(cursor!=null)
 		    			fetchOptions.startCursor(cursor);
 		        	Query q = new Query(kind);
-		        	PreparedQuery pq = ds.prepare(q);
+		        	PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
 		        	results = pq.asQueryResultList(fetchOptions);
 		        	proof = false;
 	   		}catch(Exception e){
@@ -300,8 +349,11 @@ public class Datastore extends AbstractDatabase {
     * @return
     */
    private Iterable<Entity> getDescentents(Key ancestorKey){
+	   int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 	    	Query q = new Query().setAncestor(ancestorKey);
-	    	PreparedQuery pq = ds.prepare(q);
+	    	PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
 	    	return pq.asIterable();
    }
    
@@ -310,7 +362,10 @@ public class Datastore extends AbstractDatabase {
     * @return  A list containing all the kinds
     */
    public List<String> getAllKinds(){
-	   	Iterable<Entity> results = ds.prepare(new Query(Entities.KIND_METADATA_KIND)).asIterable();
+	   int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+	   	Iterable<Entity> results = connectionList.get(thread_id).ds.prepare(new Query(Entities.KIND_METADATA_KIND)).asIterable();
 	   	//list containing kinds of the root entities
 	   	ArrayList<String> kinds = new ArrayList<String>();
 	   	for(Entity globalStat : results){
