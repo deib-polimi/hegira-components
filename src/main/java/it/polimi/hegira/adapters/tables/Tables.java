@@ -441,4 +441,10 @@ public class Tables extends AbstractDatabase {
 		ConnectionObject connection = connectionList.get(thread_id);
 		connection.tableClient = tableClient;
 	}
+
+	@Override
+	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

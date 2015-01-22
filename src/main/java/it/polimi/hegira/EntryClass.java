@@ -82,6 +82,30 @@ public class EntryClass {
 						//Telling hegira-api that we are ready to receive other commands
 						serviceQueue.announcePresence();
 						break;
+					case "switchoverPartitioned":
+						if(cli.componentType.equals("SRC")){
+							log.debug("Received command message, destined to: SRC");
+							HashMap<String, String> options_producer = new HashMap<String,String>();
+							options_producer.put("mode", Constants.PRODUCER);
+							
+							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
+							src.switchOverPartitioned("SRC");
+		            		}else if(cli.componentType.equals("TWC")){
+		            			log.debug("Received command message, destined to: TWC");
+		            			HashMap<String, String> options_consumer = new HashMap<String,String>();
+		        				options_consumer.put("mode", Constants.CONSUMER);
+		        				if(sqm.getThreads()>=1){
+		        					options_consumer.put("threads", ""+sqm.getThreads());
+		        				}
+		        				
+		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
+		        						options_consumer);
+		        				dst.switchOverPartitioned("TWC");
+		            		}
+						
+						//Telling hegira-api that we are ready to receive other commands
+						serviceQueue.announcePresence();
+						break;
 					default:
 						log.debug("Received command message: "+sqm.getCommand());
 						//Telling hegira-api that we are ready to receive other commands

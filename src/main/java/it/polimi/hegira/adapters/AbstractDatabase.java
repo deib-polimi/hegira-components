@@ -85,6 +85,14 @@ public abstract class AbstractDatabase implements Runnable{
 	public abstract void disconnect();
 	
 	/**
+	 * Encapsulate the logic contained inside the models to map a DB to the intermediate
+	 * model, reading from the source database in a virtually partitioned way
+	 * @param model
+	 * @return
+	 */
+	protected abstract Metamodel toMyModelPartitioned(AbstractDatabase model);
+	
+	/**
 	 * Template method
 	 * @param component
 	 * @return
@@ -99,6 +107,42 @@ public abstract class AbstractDatabase implements Runnable{
 					try {
 						thiz.connect();
 						thiz.toMyModel(thiz);
+					} catch (ConnectException e) {
+						e.printStackTrace();
+					} finally{
+						thiz.disconnect();
+					}     
+				}
+			}).start();
+		}else if(component.equals("TWC")){
+			//executing the consumers
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
+			for(int i=0;i<thiz.THREADS_NO;i++){
+				//thread_id=i;
+				executor.execute(thiz);
+			}
+		}
+		return true;
+	}
+	
+	/**
+	 * Template method
+	 * Performs the switchOver in a virtually partitioned way.
+	 * The TWC part is unchanged with respect to the switchOver method.
+	 * @param component The name of the component (i.e., SRC or TWC)
+	 * @return
+	 */
+	public final boolean switchOverPartitioned(String component){
+		final AbstractDatabase thiz = this;
+		
+		if(component.equals("SRC")){
+			(new Thread() {
+				@Override public void run() {
+					//thread_id=0;
+					try {
+						thiz.connect();
+						thiz.toMyModelPartitioned(thiz);
 					} catch (ConnectException e) {
 						e.printStackTrace();
 					} finally{

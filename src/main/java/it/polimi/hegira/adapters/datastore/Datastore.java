@@ -388,4 +388,10 @@ public class Datastore extends AbstractDatabase {
 	   	Key parentKey = key.getParent();
 	   	return (parentKey==null) ? true : false;
    }
+
+	@Override
+	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }
