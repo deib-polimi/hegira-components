@@ -12,6 +12,11 @@ import org.apache.log4j.Logger;
 public class PropertiesManager {
 	private transient static Logger log = Logger.getLogger(PropertiesManager.class);
 	
+	/**
+	 * Gets the value of a given property stored inside the credentials file.
+	 * @param property	The name of the property.
+	 * @return	The value for the given property name.
+	 */
 	public static String getCredentials(String property){
 		Properties props = new Properties();
 		try {
@@ -34,6 +39,14 @@ public class PropertiesManager {
 			props=null;
 		}
 		return null;
+	}
+	
+	/**
+	 * Gets the ZooKeeper connect string from the credentials file.
+	 * @return	ZooKeeper connect string (i.e., ip_address:port).
+	 */
+	public static String getZooKeeperConnectString(){
+		return getCredentials(Constants.ZK_CONNECTSTRING);
 	}
 	
 }
