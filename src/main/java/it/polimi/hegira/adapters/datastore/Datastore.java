@@ -18,6 +18,7 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entities;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.QueryResultList;
@@ -38,6 +39,9 @@ import it.polimi.hegira.transformers.DatastoreTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
+import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.ZKclient;
+import it.polimi.hegira.zkWrapper.ZKserver;
 
 public class Datastore extends AbstractDatabase {
 	private static Logger log = Logger.getLogger(Datastore.class);
@@ -125,8 +129,6 @@ public class Datastore extends AbstractDatabase {
 
 	@Override
 	protected Metamodel toMyModel(AbstractDatabase db) {
-		//TODO: implement VDPs retrieval
-		
 		Datastore datastore = (Datastore) db;
 		List<String> kinds = datastore.getAllKinds();
 		int thread_id = 0;
@@ -290,6 +292,20 @@ public class Datastore extends AbstractDatabase {
 		}
 	}
 	
+	private Map<Key,Entity> getEntitiesByKeys(List<Integer> keys, String kind){
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		//building Datastore keys
+		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
+		for(Integer ik : keys){
+			Key dk = KeyFactory.createKey(kind, ik);
+			dKeys.add(dk);
+		}
+		//querying for the given keys
+		return connectionList.get(thread_id).ds.get(dKeys);
+	}
+	
 	/**
     * Query for a given entity type
     * @param ds The datastore object to connect to the actual datastore
@@ -390,8 +406,81 @@ public class Datastore extends AbstractDatabase {
    }
 
 	@Override
-	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
-		// TODO Auto-generated method stub
+	protected Metamodel toMyModelPartitioned(AbstractDatabase db) {
+		Datastore datastore = (Datastore) db;
+		List<String> kinds = datastore.getAllKinds();
+		int thread_id = 0;
+		String connectString = PropertiesManager.getZooKeeperConnectString();
+		ZKclient zKclient = new ZKclient(connectString);
+		ZKserver zKserver = new ZKserver(connectString);
+		int vdpSize = 0;
+		try {
+			vdpSize = zKserver.getVDPsize();
+		} catch (Exception e1) {
+			log.error("Error comunicating with the lock manager", e1);
+			return null;
+		}
+		
+		for(String kind : kinds){
+			long i=0;
+			//Create a new instance of the Thrift Serializer
+	        TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+	        //initial VDPid
+	        int VDPid = 0;
+	        //announcing the start of the migration
+	        try {
+				zKserver.setMigrationStatus(kind, VDPid);
+			} catch (Exception e1) {
+				log.error("Error setting the initial migration status for kind: "+kind, e1);
+				return null;
+			}
+	        //retrieving the total number of entities written so far for this kind.
+	        int maxSeq = zKclient.getCurrentSeqNr(kind);
+	        //calculating the total number of VDPs for this kind
+	        int totalVDPs = VdpUtils.getTotalVDPs(maxSeq, vdpSize);
+	        //TODO new feature: announce the maxVDP that will be considered for migration to ZK
+	        
+	        //extracting entities per each VDP
+	        for(;VDPid<=totalVDPs;VDPid++){
+	        		//announcing the migration status for the new VDP
+	        		//excluding VDPid=0, already announced
+	        		if(VDPid>0){
+	        			try {
+	        				zKserver.setMigrationStatus(kind, VDPid);
+	        			} catch (Exception e1) {
+	        				log.error("Error setting the initial migration status for kind: "+kind, e1);
+	        				return null;
+	        			}
+	        		}
+	        		//generating ids from the VDP
+	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+	        		//getting entities from the Datastore
+	        		Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+	        		//Mapping entities to the Metamodel and sending it to the queue.
+	        		for(Entity entity : result.values()){
+					DatastoreModel dsModel = new DatastoreModel(entity);
+					dsModel.setAncestorString(entity.getKey().toString());
+					DatastoreTransformer dt = new DatastoreTransformer();
+					Metamodel myModel = dt.toMyModel(dsModel);
+					
+					if(myModel!=null){
+						try {
+							taskQueues.get(thread_id).publish(serializer.serialize(myModel));
+							i++;
+						} catch (QueueException | TException e) {
+							log.error("Serialization Error: ", e);
+						}
+					}
+				}
+	        		log.debug(Thread.currentThread().getName()+" Produced: "+i+" entities from VDPid "+VDPid);
+					
+				if(i%5000==0)
+					taskQueues.get(0).slowDownProduction();
+				
+	        }
+	        //Finish all assigned vdps for this kind
+	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities of kind "+kind);
+		}
 		return null;
 	}
 }
