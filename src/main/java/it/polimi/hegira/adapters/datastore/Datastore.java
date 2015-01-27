@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift.TDeserializer;
@@ -374,7 +375,7 @@ public class Datastore extends AbstractDatabase {
    }
    
    /**
-    * All entities' kinds contained in the datastore, excluding statistic ones.
+    * All entities kinds contained in the Datastore, excluding statistic ones.
     * @return  A list containing all the kinds
     */
    public List<String> getAllKinds(){
@@ -408,7 +409,8 @@ public class Datastore extends AbstractDatabase {
 	@Override
 	protected Metamodel toMyModelPartitioned(AbstractDatabase db) {
 		Datastore datastore = (Datastore) db;
-		List<String> kinds = datastore.getAllKinds();
+		//List<String> kinds = datastore.getAllKinds();
+		Set<String> kinds = snapshot.keySet();
 		int thread_id = 0;
 		String connectString = PropertiesManager.getZooKeeperConnectString();
 		ZKclient zKclient = new ZKclient(connectString);
@@ -435,10 +437,11 @@ public class Datastore extends AbstractDatabase {
 				return null;
 			}
 	        //retrieving the total number of entities written so far for this kind.
-	        int maxSeq = zKclient.getCurrentSeqNr(kind);
+	        //int maxSeq = zKclient.getCurrentSeqNr(kind);
+	        int maxSeq = snapshot.get(kind).getSeqNr();
 	        //calculating the total number of VDPs for this kind
-	        int totalVDPs = VdpUtils.getTotalVDPs(maxSeq, vdpSize);
-	        //TODO new feature: announce the maxVDP that will be considered for migration to ZK
+	        //int totalVDPs = VdpUtils.getTotalVDPs(maxSeq, vdpSize);
+	        int totalVDPs = snapshot.get(kind).getTotalVDPs();
 	        
 	        //extracting entities per each VDP
 	        for(;VDPid<=totalVDPs;VDPid++){
@@ -482,5 +485,10 @@ public class Datastore extends AbstractDatabase {
 	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities of kind "+kind);
 		}
 		return null;
+	}
+
+	@Override
+	public List<String> getTableList() {
+		return getAllKinds();
 	}
 }
