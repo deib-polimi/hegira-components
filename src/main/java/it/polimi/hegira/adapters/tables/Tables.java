@@ -130,7 +130,7 @@ public class Tables extends AbstractDatabase {
 	@Override
 	protected Metamodel toMyModel(AbstractDatabase db) {
 		Tables azure = (Tables) db;
-		Iterable<String> tablesList = azure.getTablesList();
+		Iterable<String> tablesList = azure.getTableList();
 		int thread_id = 0;
 		if(THREADS_NO!=0)
 			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
@@ -363,6 +363,17 @@ public class Tables extends AbstractDatabase {
 			return null;
 		}
 	}
+	
+	@Override
+	public List<String> getTableList(){
+		Iterable<String> iterable = getTablesList();
+		ArrayList<String> tableList = new ArrayList<String>();
+		for(String tbl : iterable){
+			tableList.add(tbl);
+		}
+		return tableList;
+	}
+	
 	/**
 	 * Extracts the entities contained in a given table
 	 * @param tableName The table name

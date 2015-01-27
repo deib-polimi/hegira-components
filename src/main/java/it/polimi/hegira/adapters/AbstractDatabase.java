@@ -5,8 +5,14 @@ import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.PropertiesManager;
+import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.ZKclient;
+import it.polimi.hegira.zkWrapper.ZKserver;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,6 +25,7 @@ public abstract class AbstractDatabase implements Runnable{
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
 	protected int THREADS_NO = 0;
 	//protected int thread_id;
+	protected HashMap<String, SnapshotItem> snapshot;
 	
 	/**
 	* Constructs a general database object
@@ -34,6 +41,7 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues=new ArrayList<TaskQueue>(1);
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
+					snapshot = new HashMap<String, SnapshotItem>();
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
@@ -142,8 +150,11 @@ public abstract class AbstractDatabase implements Runnable{
 					//thread_id=0;
 					try {
 						thiz.connect();
+						thiz.createSnapshot(thiz.getTableList());
 						thiz.toMyModelPartitioned(thiz);
 					} catch (ConnectException e) {
+						e.printStackTrace();
+					} catch (Exception e) {
 						e.printStackTrace();
 					} finally{
 						thiz.disconnect();
@@ -174,4 +185,75 @@ public abstract class AbstractDatabase implements Runnable{
 		}	
 	}
 
+	
+
+	/**
+	 * Creates a new snapshot of the source database by considering just 
+	 * the list of tables given as input.
+	 * Notice that the previous snapshot data will be deleted.
+	 * @param tablesList The list of tables that will be considered to create the snapshot.
+	 * @throws Exception ZK errors, interruptions, etc.
+	 */
+	public void createSnapshot(List<String> tablesList) throws Exception{
+		String connectString = PropertiesManager.getZooKeeperConnectString();
+		ZKclient zKclient = new ZKclient(connectString);
+		ZKserver zKserver = new ZKserver(connectString);
+		//set the queryLock used as a flag to block query propagation 
+		//until the snapshot has been completely created.
+		zKserver.lockQueries();
+		
+		try {
+			//getting the VDPsize
+			int vdpSize = zKserver.getVDPsize();
+			for(String tbl : tablesList){
+				int seqNr = zKclient.getCurrentSeqNr(tbl);
+				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
+				zKserver.setUntilStatus(tbl, totalVDPs, seqNr);
+				snapshot.put(tbl, 
+						new SnapshotItem(tbl, totalVDPs, seqNr));
+			}
+		} catch (Exception e) {
+			log.error(Thread.currentThread().getName() +
+					" Unable to create a snapshot!", e);
+		}
+		
+		//release the queryLock
+		zKserver.unlockQueries();
+		zKserver.close();
+	}
+	
+	/**
+	 * Returns a list containing all the tables of the database.
+	 * @return The list of tables.
+	 */
+	public abstract List<String> getTableList();
+	
+	public class SnapshotItem{
+		private String table;
+		private int totalVDPs, seqNr;
+		public SnapshotItem(String table, int totalVDPs, int seqNr) {
+			super();
+			this.table = table;
+			this.totalVDPs = totalVDPs;
+			this.seqNr = seqNr;
+		}
+		public String getTable() {
+			return table;
+		}
+		public void setTable(String table) {
+			this.table = table;
+		}
+		public int getTotalVDPs() {
+			return totalVDPs;
+		}
+		public void setTotalVDPs(int totalVDPs) {
+			this.totalVDPs = totalVDPs;
+		}
+		public int getSeqNr() {
+			return seqNr;
+		}
+		public void setSeqNr(int seqNr) {
+			this.seqNr = seqNr;
+		}
+	}
 }
