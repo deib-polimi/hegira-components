@@ -469,4 +469,10 @@ public class Datastore extends AbstractDatabase {
 	public List<String> getTableList() {
 		return getAllKinds();
 	}
+
+	@Override
+	protected AbstractDatabase fromMyModelPartitioned(Metamodel mm) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

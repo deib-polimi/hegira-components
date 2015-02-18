@@ -458,4 +458,10 @@ public class Tables extends AbstractDatabase {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	protected AbstractDatabase fromMyModelPartitioned(Metamodel mm) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

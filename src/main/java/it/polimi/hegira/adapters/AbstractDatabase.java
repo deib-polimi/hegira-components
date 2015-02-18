@@ -7,6 +7,8 @@ import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.PropertiesManager;
 import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.MigrationStatus;
+import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
 
@@ -25,7 +27,15 @@ public abstract class AbstractDatabase implements Runnable{
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
 	protected int THREADS_NO = 0;
 	//protected int thread_id;
-	protected HashMap<String, SnapshotItem> snapshot;
+	
+	//String tableName
+	//MigrationStatus the migration status for that table
+	protected HashMap<String, MigrationStatus> snapshot;
+	protected int vdpSize;
+	String connectString = PropertiesManager.getZooKeeperConnectString();
+	//ugly but for prototyping...
+	//(normal || partitioned)
+	private String behavior = "normal"; 
 	
 	/**
 	* Constructs a general database object
@@ -41,7 +51,7 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues=new ArrayList<TaskQueue>(1);
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
-					snapshot = new HashMap<String, SnapshotItem>();
+					snapshot = new HashMap<String, MigrationStatus>();
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
@@ -75,6 +85,15 @@ public abstract class AbstractDatabase implements Runnable{
 	* @return returns the converted model
 	*/
 	protected abstract AbstractDatabase fromMyModel(Metamodel mm);
+	
+	/**
+	* Encapsulate the logic contained inside the models to map to the intermediate model
+	* to a DB in a partitioned way.
+	* @param mm The intermediate model
+	* @return returns the converted model
+	*/
+	protected abstract AbstractDatabase fromMyModelPartitioned(Metamodel mm);
+	
 	/**
 	* Encapsulate the logic contained inside the models to map a DB to the intermediate
 	* model
@@ -107,6 +126,7 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	public final boolean switchOver(String component){
 		final AbstractDatabase thiz = this;
+		behavior = "normal";
 		
 		if(component.equals("SRC")){
 			(new Thread() {
@@ -143,6 +163,7 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	public final boolean switchOverPartitioned(String component){
 		final AbstractDatabase thiz = this;
+		behavior = "partitioned";
 		
 		if(component.equals("SRC")){
 			(new Thread() {
@@ -178,7 +199,11 @@ public abstract class AbstractDatabase implements Runnable{
 		try {
 			this.connect();
 			log.debug("Starting consumer thread");
-			this.fromMyModel(null);
+			if(behavior.equals("normal"))
+				this.fromMyModel(null);
+			else if(behavior.equals("partitioned")){
+			
+			}
 		} catch (ConnectException e) {
 			log.error(Thread.currentThread().getName() +
 					" Unable to connect to the destination database!", e);
@@ -195,7 +220,7 @@ public abstract class AbstractDatabase implements Runnable{
 	 * @throws Exception ZK errors, interruptions, etc.
 	 */
 	public void createSnapshot(List<String> tablesList) throws Exception{
-		String connectString = PropertiesManager.getZooKeeperConnectString();
+		//String connectString = PropertiesManager.getZooKeeperConnectString();
 		ZKclient zKclient = new ZKclient(connectString);
 		ZKserver zKserver = new ZKserver(connectString);
 		//set the queryLock used as a flag to block query propagation 
@@ -204,13 +229,14 @@ public abstract class AbstractDatabase implements Runnable{
 		
 		try {
 			//getting the VDPsize
-			int vdpSize = zKserver.getVDPsize();
+			vdpSize = zKserver.getVDPsize();
 			for(String tbl : tablesList){
 				int seqNr = zKclient.getCurrentSeqNr(tbl);
 				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
-				zKserver.setUntilStatus(tbl, totalVDPs, seqNr);
-				snapshot.put(tbl, 
-						new SnapshotItem(tbl, totalVDPs, seqNr));
+				//automatically setting the VDPStatus to NOT_MIGRATED
+				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
+				boolean setted = zKserver.setMigrationStatus(tbl, status);
+				snapshot.put(tbl, status);
 			}
 		} catch (Exception e) {
 			log.error(Thread.currentThread().getName() +
@@ -222,38 +248,18 @@ public abstract class AbstractDatabase implements Runnable{
 		zKserver.close();
 	}
 	
+	public void updateMigrationStatus(String tableName, int VDPid, VDPstatus status) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		MigrationStatus migrationStatus = snapshot.get(tableName);
+		migrationStatus.updateVDP(VDPid, status);
+		zKserver.setMigrationStatus(tableName, migrationStatus);
+		zKserver.close();
+		zKserver=null;
+	}
+	
 	/**
 	 * Returns a list containing all the tables of the database.
 	 * @return The list of tables.
 	 */
 	public abstract List<String> getTableList();
-	
-	public class SnapshotItem{
-		private String table;
-		private int totalVDPs, seqNr;
-		public SnapshotItem(String table, int totalVDPs, int seqNr) {
-			super();
-			this.table = table;
-			this.totalVDPs = totalVDPs;
-			this.seqNr = seqNr;
-		}
-		public String getTable() {
-			return table;
-		}
-		public void setTable(String table) {
-			this.table = table;
-		}
-		public int getTotalVDPs() {
-			return totalVDPs;
-		}
-		public void setTotalVDPs(int totalVDPs) {
-			this.totalVDPs = totalVDPs;
-		}
-		public int getSeqNr() {
-			return seqNr;
-		}
-		public void setSeqNr(int seqNr) {
-			this.seqNr = seqNr;
-		}
-	}
 }
