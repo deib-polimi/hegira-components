@@ -41,6 +41,7 @@ import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
 import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
 
@@ -412,49 +413,26 @@ public class Datastore extends AbstractDatabase {
 		//List<String> kinds = datastore.getAllKinds();
 		Set<String> kinds = snapshot.keySet();
 		int thread_id = 0;
-		String connectString = PropertiesManager.getZooKeeperConnectString();
-		ZKclient zKclient = new ZKclient(connectString);
-		ZKserver zKserver = new ZKserver(connectString);
-		int vdpSize = 0;
-		try {
-			vdpSize = zKserver.getVDPsize();
-		} catch (Exception e1) {
-			log.error("Error comunicating with the lock manager", e1);
-			return null;
-		}
 		
 		for(String kind : kinds){
 			long i=0;
 			//Create a new instance of the Thrift Serializer
 	        TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
-	        //initial VDPid
-	        int VDPid = 0;
-	        //announcing the start of the migration
-	        try {
-				zKserver.setMigrationStatus(kind, VDPid);
-			} catch (Exception e1) {
-				log.error("Error setting the initial migration status for kind: "+kind, e1);
-				return null;
-			}
+	        
 	        //retrieving the total number of entities written so far for this kind.
-	        //int maxSeq = zKclient.getCurrentSeqNr(kind);
-	        int maxSeq = snapshot.get(kind).getSeqNr();
+	        int maxSeq = snapshot.get(kind).getLastSeqNr();
 	        //calculating the total number of VDPs for this kind
-	        //int totalVDPs = VdpUtils.getTotalVDPs(maxSeq, vdpSize);
-	        int totalVDPs = snapshot.get(kind).getTotalVDPs();
+	        int totalVDPs = snapshot.get(kind).getTotalVDPs(vdpSize);
 	        
 	        //extracting entities per each VDP
-	        for(;VDPid<=totalVDPs;VDPid++){
+	        for(int VDPid = 0;VDPid<=totalVDPs;VDPid++){
 	        		//announcing the migration status for the new VDP
-	        		//excluding VDPid=0, already announced
-	        		if(VDPid>0){
-	        			try {
-	        				zKserver.setMigrationStatus(kind, VDPid);
-	        			} catch (Exception e1) {
-	        				log.error("Error setting the initial migration status for kind: "+kind, e1);
-	        				return null;
-	        			}
-	        		}
+        			try {
+        				updateMigrationStatus(kind, VDPid, VDPstatus.UNDER_MIGRATION);
+        			} catch (Exception e1) {
+        				log.error("Error setting the initial migration status for kind: "+kind, e1);
+        				return null;
+        			}
 	        		//generating ids from the VDP
 	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
 	        		//getting entities from the Datastore
