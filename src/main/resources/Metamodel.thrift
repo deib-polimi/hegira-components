@@ -13,7 +13,7 @@ struct Metamodel {
 	2: optional list<string> columnFamilies,
 	3: string rowKey,
 	4: map<string, list<Column>> columns,
-	5: optional i32 actualVdpSize,
+	5: optional map<string, i32> actualVdpSize,
 }
 
 
