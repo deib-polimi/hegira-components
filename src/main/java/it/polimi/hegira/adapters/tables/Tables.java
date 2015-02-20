@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift.TDeserializer;
@@ -40,6 +42,9 @@ import it.polimi.hegira.transformers.AzureTablesTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
+import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
+import it.polimi.hegira.zkWrapper.ZKserver;
 
 public class Tables extends AbstractDatabase {
 	private transient Logger log = Logger.getLogger(Tables.class);
@@ -461,7 +466,123 @@ public class Tables extends AbstractDatabase {
 
 	@Override
 	protected AbstractDatabase fromMyModelPartitioned(Metamodel mm) {
-		// TODO Auto-generated method stub
-		return null;
+		//TWC
+		log.debug(Thread.currentThread().getName()+" Hi I'm the AZURE consumer!");
+		
+		//Instantiate the Thrift Deserializer
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		
+		while(true){
+			try {
+
+				log.debug(Thread.currentThread().getName() + 
+						" - getting taskQueue with id: "+thread_id);
+				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery();
+				if(delivery!=null){
+					Metamodel myModel = new Metamodel();
+					deserializer.deserialize(myModel, delivery.getBody());
+					
+					AzureTablesTransformer att = new AzureTablesTransformer();
+					AzureTablesModel fromMyModel = att.fromMyModel(myModel);
+					List<DynamicTableEntity> entities = fromMyModel.getEntities();
+					taskQueues.get(thread_id).sendAck(delivery);
+					
+					String tableName = fromMyModel.getTableName();
+					CloudTable tbl = createTable(tableName);
+					if(tbl==null) return null;
+					for(DynamicTableEntity entity : entities){
+						TableResult ie = insertEntity(tableName, entity);
+						if(ie==null) return null;
+						count++;
+						if(count%2000==0)
+							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
+					}
+					
+
+					//incrementing the VDPsCounters
+					updateVDPsCounters(myModel);	
+					////////////////////////////////
+				}else{
+					log.debug(Thread.currentThread().getName() + " - The queue " +
+							TaskQueue.getDefaultTaskQueueName() + " is empty");
+				}
+			} catch (ShutdownSignalException | ConsumerCancelledException
+					| InterruptedException e) {
+				log.error(Thread.currentThread().getName() + " - Cannot read next delivery from the queue " + 
+					TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (TException e) {
+				log.error(Thread.currentThread().getName() + " - Error deserializing message ", e);
+			} catch (QueueException e) {
+				log.error(Thread.currentThread().getName() + " - Error sending an acknowledgment to the queue " + 
+						TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (URISyntaxException e) {
+				log.error(Thread.currentThread().getName() + " - Error operating on Azure Tables ", e);
+			} catch (StorageException e) {
+				log.error(Thread.currentThread().getName() + " - Error storing data on Azure Tables ", e);
+			}
+		}
+	}
+	
+	private void updateVDPsCounters(Metamodel myModel){
+		Integer VDPid = VdpUtils.getVDP(Integer.parseInt(myModel.getRowKey()), vdpSize);
+		Map<String, Integer> vdpSizeMap = myModel.getActualVdpSize();
+		Set<String> columnFamilies = vdpSizeMap.keySet();
+		for(String cf : columnFamilies){
+			/**
+			 * tableVDPcounters
+			 * K - VDPid
+			 * V - counter value for that VDP
+			 */
+			ConcurrentHashMap<Integer, Integer> tableVDPcounters = VDPsCounters.get(cf);
+			if(tableVDPcounters==null){
+				//if no counter is in here, then it means it is the first entity that is being processed
+				ConcurrentHashMap<Integer, Integer> concurrentHashMap = 
+						new ConcurrentHashMap<Integer, Integer>((int) Math.pow(10, vdpSize), 0.75f, THREADS_NO);
+				//... so we put the counter to 1
+				concurrentHashMap.put(VDPid,1);
+				VDPsCounters.put(cf, concurrentHashMap);
+				//... and check if we reached the threshold for that VDP (unlikely with just one entity)
+				if(1>=vdpSizeMap.get(cf)){
+					//if it is the case we announce we have processed all the VDP
+					boolean proof = false;
+					int retries = 0;
+					while(!proof && retries <= 3){
+						try {
+							updateMigrationStatus(cf, VDPid, VDPstatus.MIGRATED);
+						} catch (Exception e) {
+							log.error("Unable to update MigrationStatus for VDP "+VDPid+
+									" in table "+cf, e);
+						}
+					}
+				}
+			}else{
+				Integer counter = tableVDPcounters.get(VDPid);
+				if(counter==null){
+					//it is the first entity we get for this VDP
+					//... so we put the counter to 0
+					counter = 0;
+					tableVDPcounters.put(VDPid, counter);
+					VDPsCounters.put(cf, tableVDPcounters);
+				}
+				//check if we finished to migrate an entire VDP
+				if(counter>=vdpSizeMap.get(cf)){
+					boolean proof = false;
+					int retries = 0;
+					while(!proof && retries <= 3){
+						try {
+							updateMigrationStatus(cf, VDPid, VDPstatus.MIGRATED);
+						} catch (Exception e) {
+							log.error("Unable to update MigrationStatus for VDP "+VDPid+
+									" in table "+cf, e);
+						}
+					}
+				}else{
+					tableVDPcounters.put(VDPid, counter++);
+					VDPsCounters.put(cf, tableVDPcounters);
+				}
+				
+			}
+		}
 	}
 }

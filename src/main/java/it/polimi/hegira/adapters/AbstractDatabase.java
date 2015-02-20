@@ -39,11 +39,12 @@ public abstract class AbstractDatabase implements Runnable{
 	private String behavior = "normal"; 
 	
 	/**
+	 * VDPsCounters
 	 * K1 tableName
 	 * V1-K2 VDPid
 	 * V1-V2 VDP counter 
 	 */
-	ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> VDPsCounters;
+	protected ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> VDPsCounters;
 	
 	/**
 	* Constructs a general database object
