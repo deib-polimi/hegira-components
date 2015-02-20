@@ -39,6 +39,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   private static final org.apache.thrift.protocol.TField COLUMN_FAMILIES_FIELD_DESC = new org.apache.thrift.protocol.TField("columnFamilies", org.apache.thrift.protocol.TType.LIST, (short)2);
   private static final org.apache.thrift.protocol.TField ROW_KEY_FIELD_DESC = new org.apache.thrift.protocol.TField("rowKey", org.apache.thrift.protocol.TType.STRING, (short)3);
   private static final org.apache.thrift.protocol.TField COLUMNS_FIELD_DESC = new org.apache.thrift.protocol.TField("columns", org.apache.thrift.protocol.TType.MAP, (short)4);
+  private static final org.apache.thrift.protocol.TField ACTUAL_VDP_SIZE_FIELD_DESC = new org.apache.thrift.protocol.TField("actualVdpSize", org.apache.thrift.protocol.TType.I32, (short)5);
 
   private static final Map<Class<? extends IScheme>, SchemeFactory> schemes = new HashMap<Class<? extends IScheme>, SchemeFactory>();
   static {
@@ -50,13 +51,15 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   public List<String> columnFamilies; // optional
   public String rowKey; // required
   public Map<String,List<Column>> columns; // required
+  public int actualVdpSize; // optional
 
   /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     PARTITION_GROUP((short)1, "partitionGroup"),
     COLUMN_FAMILIES((short)2, "columnFamilies"),
     ROW_KEY((short)3, "rowKey"),
-    COLUMNS((short)4, "columns");
+    COLUMNS((short)4, "columns"),
+    ACTUAL_VDP_SIZE((short)5, "actualVdpSize");
 
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
@@ -79,6 +82,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
           return ROW_KEY;
         case 4: // COLUMNS
           return COLUMNS;
+        case 5: // ACTUAL_VDP_SIZE
+          return ACTUAL_VDP_SIZE;
         default:
           return null;
       }
@@ -119,7 +124,9 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   }
 
   // isset id assignments
-  private _Fields optionals[] = {_Fields.COLUMN_FAMILIES};
+  private static final int __ACTUALVDPSIZE_ISSET_ID = 0;
+  private byte __isset_bitfield = 0;
+  private _Fields optionals[] = {_Fields.COLUMN_FAMILIES,_Fields.ACTUAL_VDP_SIZE};
   public static final Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> metaDataMap;
   static {
     Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);
@@ -135,12 +142,14 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
             new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING), 
             new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, 
                 new org.apache.thrift.meta_data.StructMetaData(org.apache.thrift.protocol.TType.STRUCT, Column.class)))));
+    tmpMap.put(_Fields.ACTUAL_VDP_SIZE, new org.apache.thrift.meta_data.FieldMetaData("actualVdpSize", org.apache.thrift.TFieldRequirementType.OPTIONAL, 
+        new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32)));
     metaDataMap = Collections.unmodifiableMap(tmpMap);
     org.apache.thrift.meta_data.FieldMetaData.addStructMetaDataMap(Metamodel.class, metaDataMap);
   }
 
   public Metamodel() {
-	this.columns = new HashMap<String, List<Column>>();
+  	this.columns = new HashMap<String, List<Column>>();
 	this.columnFamilies = new ArrayList<String>();
   }
 
@@ -159,6 +168,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
    * Performs a deep copy on <i>other</i>.
    */
   public Metamodel(Metamodel other) {
+    __isset_bitfield = other.__isset_bitfield;
     if (other.isSetPartitionGroup()) {
       this.partitionGroup = other.partitionGroup;
     }
@@ -187,6 +197,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       }
       this.columns = __this__columns;
     }
+    this.actualVdpSize = other.actualVdpSize;
   }
 
   public Metamodel deepCopy() {
@@ -199,6 +210,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
     this.columnFamilies = null;
     this.rowKey = null;
     this.columns = null;
+    setActualVdpSizeIsSet(false);
+    this.actualVdpSize = 0;
   }
 
   public String getPartitionGroup() {
@@ -323,6 +336,29 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
     }
   }
 
+  public int getActualVdpSize() {
+    return this.actualVdpSize;
+  }
+
+  public Metamodel setActualVdpSize(int actualVdpSize) {
+    this.actualVdpSize = actualVdpSize;
+    setActualVdpSizeIsSet(true);
+    return this;
+  }
+
+  public void unsetActualVdpSize() {
+    __isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __ACTUALVDPSIZE_ISSET_ID);
+  }
+
+  /** Returns true if field actualVdpSize is set (has been assigned a value) and false otherwise */
+  public boolean isSetActualVdpSize() {
+    return EncodingUtils.testBit(__isset_bitfield, __ACTUALVDPSIZE_ISSET_ID);
+  }
+
+  public void setActualVdpSizeIsSet(boolean value) {
+    __isset_bitfield = EncodingUtils.setBit(__isset_bitfield, __ACTUALVDPSIZE_ISSET_ID, value);
+  }
+
   public void setFieldValue(_Fields field, Object value) {
     switch (field) {
     case PARTITION_GROUP:
@@ -357,6 +393,14 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       }
       break;
 
+    case ACTUAL_VDP_SIZE:
+      if (value == null) {
+        unsetActualVdpSize();
+      } else {
+        setActualVdpSize((Integer)value);
+      }
+      break;
+
     }
   }
 
@@ -373,6 +417,9 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
 
     case COLUMNS:
       return getColumns();
+
+    case ACTUAL_VDP_SIZE:
+      return Integer.valueOf(getActualVdpSize());
 
     }
     throw new IllegalStateException();
@@ -393,6 +440,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       return isSetRowKey();
     case COLUMNS:
       return isSetColumns();
+    case ACTUAL_VDP_SIZE:
+      return isSetActualVdpSize();
     }
     throw new IllegalStateException();
   }
@@ -443,6 +492,15 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       if (!(this_present_columns && that_present_columns))
         return false;
       if (!this.columns.equals(that.columns))
+        return false;
+    }
+
+    boolean this_present_actualVdpSize = true && this.isSetActualVdpSize();
+    boolean that_present_actualVdpSize = true && that.isSetActualVdpSize();
+    if (this_present_actualVdpSize || that_present_actualVdpSize) {
+      if (!(this_present_actualVdpSize && that_present_actualVdpSize))
+        return false;
+      if (this.actualVdpSize != that.actualVdpSize)
         return false;
     }
 
@@ -502,6 +560,16 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
         return lastComparison;
       }
     }
+    lastComparison = Boolean.valueOf(isSetActualVdpSize()).compareTo(other.isSetActualVdpSize());
+    if (lastComparison != 0) {
+      return lastComparison;
+    }
+    if (isSetActualVdpSize()) {
+      lastComparison = org.apache.thrift.TBaseHelper.compareTo(this.actualVdpSize, other.actualVdpSize);
+      if (lastComparison != 0) {
+        return lastComparison;
+      }
+    }
     return 0;
   }
 
@@ -555,6 +623,12 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       sb.append(this.columns);
     }
     first = false;
+    if (isSetActualVdpSize()) {
+      if (!first) sb.append(", ");
+      sb.append("actualVdpSize:");
+      sb.append(this.actualVdpSize);
+      first = false;
+    }
     sb.append(")");
     return sb.toString();
   }
@@ -574,6 +648,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
 
   private void readObject(java.io.ObjectInputStream in) throws java.io.IOException, ClassNotFoundException {
     try {
+      // it doesn't seem like you should have to do this, but java serialization is wacky, and doesn't call the default constructor.
+      __isset_bitfield = 0;
       read(new org.apache.thrift.protocol.TCompactProtocol(new org.apache.thrift.transport.TIOStreamTransport(in)));
     } catch (org.apache.thrift.TException te) {
       throw new java.io.IOException(te);
@@ -663,6 +739,14 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
               org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
             }
             break;
+          case 5: // ACTUAL_VDP_SIZE
+            if (schemeField.type == org.apache.thrift.protocol.TType.I32) {
+              struct.actualVdpSize = iprot.readI32();
+              struct.setActualVdpSizeIsSet(true);
+            } else { 
+              org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
+            }
+            break;
           default:
             org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
         }
@@ -722,6 +806,11 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
         }
         oprot.writeFieldEnd();
       }
+      if (struct.isSetActualVdpSize()) {
+        oprot.writeFieldBegin(ACTUAL_VDP_SIZE_FIELD_DESC);
+        oprot.writeI32(struct.actualVdpSize);
+        oprot.writeFieldEnd();
+      }
       oprot.writeFieldStop();
       oprot.writeStructEnd();
     }
@@ -752,7 +841,10 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       if (struct.isSetColumns()) {
         optionals.set(3);
       }
-      oprot.writeBitSet(optionals, 4);
+      if (struct.isSetActualVdpSize()) {
+        optionals.set(4);
+      }
+      oprot.writeBitSet(optionals, 5);
       if (struct.isSetPartitionGroup()) {
         oprot.writeString(struct.partitionGroup);
       }
@@ -784,12 +876,15 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
           }
         }
       }
+      if (struct.isSetActualVdpSize()) {
+        oprot.writeI32(struct.actualVdpSize);
+      }
     }
 
     @Override
     public void read(org.apache.thrift.protocol.TProtocol prot, Metamodel struct) throws org.apache.thrift.TException {
       TTupleProtocol iprot = (TTupleProtocol) prot;
-      BitSet incoming = iprot.readBitSet(4);
+      BitSet incoming = iprot.readBitSet(5);
       if (incoming.get(0)) {
         struct.partitionGroup = iprot.readString();
         struct.setPartitionGroupIsSet(true);
@@ -836,7 +931,12 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
         }
         struct.setColumnsIsSet(true);
       }
+      if (incoming.get(4)) {
+        struct.actualVdpSize = iprot.readI32();
+        struct.setActualVdpSizeIsSet(true);
+      }
     }
   }
 
 }
+
