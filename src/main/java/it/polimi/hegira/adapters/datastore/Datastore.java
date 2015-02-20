@@ -437,12 +437,18 @@ public class Datastore extends AbstractDatabase {
 	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
 	        		//getting entities from the Datastore
 	        		Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+	        		
+	        		//getting the effective #entities to be piggybacked with every Metamodel entity
+	        		int actualEntitiesNumber = result.size();
+	        		
 	        		//Mapping entities to the Metamodel and sending it to the queue.
 	        		for(Entity entity : result.values()){
 					DatastoreModel dsModel = new DatastoreModel(entity);
 					dsModel.setAncestorString(entity.getKey().toString());
 					DatastoreTransformer dt = new DatastoreTransformer();
 					Metamodel myModel = dt.toMyModel(dsModel);
+					//Piggybacking the actual number of entities the TWC should expect.
+					myModel.setActualVdpSize(actualEntitiesNumber);
 					
 					if(myModel!=null){
 						try {
