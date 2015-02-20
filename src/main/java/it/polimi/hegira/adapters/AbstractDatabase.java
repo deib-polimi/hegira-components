@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -36,6 +37,13 @@ public abstract class AbstractDatabase implements Runnable{
 	//ugly but for prototyping...
 	//(normal || partitioned)
 	private String behavior = "normal"; 
+	
+	/**
+	 * K1 tableName
+	 * V1-K2 VDPid
+	 * V1-V2 VDP counter 
+	 */
+	ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> VDPsCounters;
 	
 	/**
 	* Constructs a general database object
@@ -65,6 +73,9 @@ public abstract class AbstractDatabase implements Runnable{
 						taskQueues.add(new TaskQueue(options.get("mode"), 
 							Integer.parseInt(options.get("threads")), 
 							options.get("queue-address")));
+					
+					VDPsCounters = new ConcurrentHashMap<String, 
+							ConcurrentHashMap<Integer,Integer>>(10, 0.75f, threads);
 					break;
 				default:
 					log.error(Thread.currentThread().getName()+
@@ -202,7 +213,7 @@ public abstract class AbstractDatabase implements Runnable{
 			if(behavior.equals("normal"))
 				this.fromMyModel(null);
 			else if(behavior.equals("partitioned")){
-			
+				this.fromMyModelPartitioned(null);
 			}
 		} catch (ConnectException e) {
 			log.error(Thread.currentThread().getName() +
@@ -219,7 +230,7 @@ public abstract class AbstractDatabase implements Runnable{
 	 * @param tablesList The list of tables that will be considered to create the snapshot.
 	 * @throws Exception ZK errors, interruptions, etc.
 	 */
-	public void createSnapshot(List<String> tablesList) throws Exception{
+	protected void createSnapshot(List<String> tablesList) throws Exception{
 		//String connectString = PropertiesManager.getZooKeeperConnectString();
 		ZKclient zKclient = new ZKclient(connectString);
 		ZKserver zKserver = new ZKserver(connectString);
