@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +42,6 @@ import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
 import it.polimi.hegira.vdp.VdpUtils;
 import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
-import it.polimi.hegira.zkWrapper.ZKserver;
 
 public class Tables extends AbstractDatabase {
 	private transient Logger log = Logger.getLogger(Tables.class);
