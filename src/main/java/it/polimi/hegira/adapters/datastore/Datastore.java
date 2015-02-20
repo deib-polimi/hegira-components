@@ -3,6 +3,7 @@ package it.polimi.hegira.adapters.datastore;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -448,7 +449,9 @@ public class Datastore extends AbstractDatabase {
 					DatastoreTransformer dt = new DatastoreTransformer();
 					Metamodel myModel = dt.toMyModel(dsModel);
 					//Piggybacking the actual number of entities the TWC should expect.
-					myModel.setActualVdpSize(actualEntitiesNumber);
+					HashMap<String, Integer> counters = new HashMap<String, Integer>();
+					counters.put(entity.getKind(), actualEntitiesNumber);
+					myModel.setActualVdpSize(counters);
 					
 					if(myModel!=null){
 						try {
