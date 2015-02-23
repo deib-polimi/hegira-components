@@ -6,8 +6,6 @@ import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift.TDeserializer;
@@ -40,8 +38,6 @@ import it.polimi.hegira.transformers.AzureTablesTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
-import it.polimi.hegira.vdp.VdpUtils;
-import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 
 public class Tables extends AbstractDatabase {
 	private transient Logger log = Logger.getLogger(Tables.class);
