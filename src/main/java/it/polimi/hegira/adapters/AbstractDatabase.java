@@ -177,6 +177,11 @@ public abstract class AbstractDatabase implements Runnable{
 	public final boolean switchOverPartitioned(String component){
 		final AbstractDatabase thiz = this;
 		behavior = "partitioned";
+		try {
+			vdpSize = new ZKserver(connectString).getVDPsize();
+		} catch (Exception e) {
+			log.error("Unable to retrieve VDP size", e);
+		}
 		
 		if(component.equals("SRC")){
 			(new Thread() {

@@ -289,6 +289,7 @@ public class DatastoreTransformer implements ITransformer<DatastoreModel> {
 		boolean indexable = column.isIndexable();
 		try {
 			Object deser_obj = DefaultSerializer.deserialize(columnValue);
+			//TODO: columnValue.instanceOf(tutti i tipi di GAE tranne liste che rimangono serializzate)
 			/**
 			 * If a String is greater than 500 character 
 			 * it must be stored as a Text inside the Datastore
