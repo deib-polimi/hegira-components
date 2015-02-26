@@ -11,13 +11,13 @@ import it.polimi.hegira.zkWrapper.MigrationStatus;
 import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
+import it.polimi.hegira.utils.VDPsCounters;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,7 +45,7 @@ public abstract class AbstractDatabase implements Runnable{
 	 * V1-K2 VDPid
 	 * V1-V2 VDP counter 
 	 */
-	protected ConcurrentHashMap<String, ConcurrentHashMap<Integer, Integer>> VDPsCounters;
+	protected VDPsCounters vdpsCounters;
 	
 	/**
 	* Constructs a general database object
@@ -76,8 +76,7 @@ public abstract class AbstractDatabase implements Runnable{
 							Integer.parseInt(options.get("threads")), 
 							options.get("queue-address")));
 					
-					VDPsCounters = new ConcurrentHashMap<String, 
-							ConcurrentHashMap<Integer,Integer>>(10, 0.75f, threads);
+					vdpsCounters = new VDPsCounters();
 					break;
 				default:
 					log.error(Thread.currentThread().getName()+
@@ -179,6 +178,7 @@ public abstract class AbstractDatabase implements Runnable{
 		behavior = "partitioned";
 		try {
 			vdpSize = new ZKserver(connectString).getVDPsize();
+			log.debug("Got VDPsize = "+vdpSize);
 		} catch (Exception e) {
 			log.error("Unable to retrieve VDP size", e);
 		}
@@ -189,6 +189,8 @@ public abstract class AbstractDatabase implements Runnable{
 					//thread_id=0;
 					try {
 						thiz.connect();
+						log.debug(Thread.currentThread().getName()+
+								" creating snapshot...");
 						thiz.createSnapshot(thiz.getTableList());
 						thiz.toMyModelPartitioned(thiz);
 					} catch (ConnectException e) {
@@ -244,10 +246,12 @@ public abstract class AbstractDatabase implements Runnable{
 		//set the queryLock used as a flag to block query propagation 
 		//until the snapshot has been completely created.
 		zKserver.lockQueries();
+		log.debug(Thread.currentThread().getName()+
+				" locking queries...");
 		
 		try {
 			//getting the VDPsize
-			vdpSize = zKserver.getVDPsize();
+			//vdpSize = zKserver.getVDPsize();
 			for(String tbl : tablesList){
 				int seqNr = zKclient.getCurrentSeqNr(tbl);
 				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
@@ -255,6 +259,8 @@ public abstract class AbstractDatabase implements Runnable{
 				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
 				boolean setted = zKserver.setMigrationStatus(tbl, status);
 				snapshot.put(tbl, status);
+				log.debug(Thread.currentThread().getName()+
+						" Added table "+tbl+" to snapshot with seqNr: "+seqNr+" and totalVDPs: "+totalVDPs);
 			}
 		} catch (Exception e) {
 			log.error(Thread.currentThread().getName() +
@@ -264,6 +270,8 @@ public abstract class AbstractDatabase implements Runnable{
 		//release the queryLock
 		zKserver.unlockQueries();
 		zKserver.close();
+		log.debug(Thread.currentThread().getName()+
+				" unlocked queries...");
 	}
 	
 	public void updateMigrationStatus(String tableName, int VDPid, VDPstatus status) throws Exception{
@@ -273,6 +281,19 @@ public abstract class AbstractDatabase implements Runnable{
 		zKserver.setMigrationStatus(tableName, migrationStatus);
 		zKserver.close();
 		zKserver=null;
+		log.debug(Thread.currentThread().getName() +
+				" updated migration status to "+status.name()+" for VDP: "+tableName+"/"+VDPid);
+	}
+	
+	private void updateMigrationStatusTWC(String tableName, int VDPid, VDPstatus status) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		MigrationStatus migrationStatus = zKserver.getMigrationStatus(tableName);
+		migrationStatus.updateVDP(VDPid, status);
+		zKserver.setMigrationStatus(tableName, migrationStatus);
+		zKserver.close();
+		zKserver=null;
+		log.debug(Thread.currentThread().getName() +
+				" updated migration status to "+status.name()+" for VDP: "+tableName+"/"+VDPid);
 	}
 	
 	/**
@@ -285,60 +306,28 @@ public abstract class AbstractDatabase implements Runnable{
 		Integer VDPid = VdpUtils.getVDP(Integer.parseInt(myModel.getRowKey()), vdpSize);
 		Map<String, Integer> vdpSizeMap = myModel.getActualVdpSize();
 		Set<String> columnFamilies = vdpSizeMap.keySet();
+		int size = (int) Math.pow(10, vdpSize);
 		for(String cf : columnFamilies){
-			/**
-			 * tableVDPcounters
-			 * K - VDPid
-			 * V - counter value for that VDP
-			 */
-			ConcurrentHashMap<Integer, Integer> tableVDPcounters = VDPsCounters.get(cf);
-			if(tableVDPcounters==null){
-				//if no counter is in here, then it means it is the first entity that is being processed
-				ConcurrentHashMap<Integer, Integer> concurrentHashMap = 
-						new ConcurrentHashMap<Integer, Integer>((int) Math.pow(10, vdpSize), 0.75f, THREADS_NO);
-				//... so we put the counter to 1
-				concurrentHashMap.put(VDPid,1);
-				VDPsCounters.put(cf, concurrentHashMap);
-				//... and check if we reached the threshold for that VDP (unlikely with just one entity)
-				if(1>=vdpSizeMap.get(cf)){
-					//if it is the case we announce we have processed all the VDP
-					boolean proof = false;
-					int retries = 0;
-					while(!proof && retries <= 3){
-						try {
-							updateMigrationStatus(cf, VDPid, VDPstatus.MIGRATED);
-						} catch (Exception e) {
-							log.error("Unable to update MigrationStatus for VDP "+VDPid+
-									" in table "+cf, e);
-						}
+			int updatedValue = vdpsCounters.putAndIncrementCounter(cf, VDPid, size);
+			//log.debug(Thread.currentThread().getName()+
+			//		"\n updating VDPs Counters: "
+			//		+"piggybacked value: "+vdpSizeMap.get(cf)
+			//		+ " set counter "+cf+"/"+VDPid+" to: "+updatedValue);
+			
+			//check if we finished to migrate an entire VDP
+			if(updatedValue>=vdpSizeMap.get(cf)){
+				boolean proof = false;
+				int retries = 0;
+				while(!proof && retries <= 3){
+					try {
+						updateMigrationStatusTWC(cf, VDPid, VDPstatus.MIGRATED);
+						proof = true;
+					} catch (Exception e) {
+						log.error("Unable to update MigrationStatus for VDP "+VDPid+
+								" in table "+cf, e);
+						retries++;
 					}
 				}
-			}else{
-				Integer counter = tableVDPcounters.get(VDPid);
-				if(counter==null){
-					//it is the first entity we get for this VDP
-					//... so we put the counter to 0
-					counter = 0;
-					tableVDPcounters.put(VDPid, counter);
-					VDPsCounters.put(cf, tableVDPcounters);
-				}
-				//check if we finished to migrate an entire VDP
-				if(counter>=vdpSizeMap.get(cf)){
-					boolean proof = false;
-					int retries = 0;
-					while(!proof && retries <= 3){
-						try {
-							updateMigrationStatus(cf, VDPid, VDPstatus.MIGRATED);
-						} catch (Exception e) {
-							log.error("Unable to update MigrationStatus for VDP "+VDPid+
-									" in table "+cf, e);
-						}
-					}
-				}else{
-					tableVDPcounters.put(VDPid, counter++);
-					VDPsCounters.put(cf, tableVDPcounters);
-				}
-				
 			}
 		}
 	}
