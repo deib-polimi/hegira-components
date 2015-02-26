@@ -302,7 +302,7 @@ public class Datastore extends AbstractDatabase {
 		//building Datastore keys
 		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
 		for(Integer ik : keys){
-			Key dk = KeyFactory.createKey(kind, ik);
+			Key dk = KeyFactory.createKey(kind, ik.toString());
 			dKeys.add(dk);
 		}
 		//querying for the given keys
@@ -436,6 +436,13 @@ public class Datastore extends AbstractDatabase {
         			}
 	        		//generating ids from the VDP
 	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+	        		if(VDPid == 0){
+	        			if(ids.get(0) == 0)
+	        				ids.remove(0);
+	        		}
+	        		
+	        		log.debug(Thread.currentThread().getName() +
+	        				" Getting entities for VDP: "+kind+"/"+VDPid);
 	        		//getting entities from the Datastore
 	        		Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
 	        		
@@ -462,7 +469,20 @@ public class Datastore extends AbstractDatabase {
 						}
 					}
 				}
-	        		log.debug(Thread.currentThread().getName()+" Produced: "+i+" entities from VDPid "+VDPid);
+	        		log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
+	        				+VDPid+": "+actualEntitiesNumber);
+	        		
+	        		//in the event that the client application requested too many ids, so that an entire VDP is empty,
+	        		//or in the case the client application has removed all entities in a VDP...
+	        		//there's no reason why that VDP should figure as "NOT_MIGRATED"
+	        		if(actualEntitiesNumber==0){
+	        			try {
+						updateMigrationStatus(kind, VDPid, VDPstatus.MIGRATED);
+					} catch (Exception e) {
+						log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+        					return null;
+					}
+	        		}
 					
 				if(i%5000==0)
 					taskQueues.get(0).slowDownProduction();
