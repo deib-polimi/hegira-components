@@ -128,6 +128,25 @@ public class TaskQueue {
 		}
 	}
 	
+	public void sendNack(Delivery delivery) throws QueueException{
+		try {
+			/**
+			 * void basicNack(long deliveryTag,
+             *					boolean multiple,
+             *					boolean requeue)
+			 */
+			channel.basicNack(delivery.getEnvelope().getDeliveryTag(),
+					false, true);
+			/**
+			 * void basicReject(long deliveryTag,
+             *					boolean requeue)
+			 */
+			channel.basicReject(delivery.getEnvelope().getDeliveryTag(), true);
+		} catch (IOException e) {
+			throw new QueueException(e.getMessage(),e.getCause());
+		}
+	}
+	
 	/**
 	 * Returns an approxiamation of the messages present in the queue.
 	 * NB. Sometimes the count may be 0.
