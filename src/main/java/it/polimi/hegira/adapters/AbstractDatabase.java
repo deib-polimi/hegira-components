@@ -13,6 +13,7 @@ import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
 import it.polimi.hegira.utils.VDPsCounters;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -274,26 +275,27 @@ public abstract class AbstractDatabase implements Runnable{
 				" unlocked queries...");
 	}
 	
-	public void updateMigrationStatus(String tableName, int VDPid, VDPstatus status) throws Exception{
+	public boolean canMigrate(String tableName, int VDPid) throws ClassNotFoundException, IOException{
 		ZKserver zKserver = new ZKserver(connectString);
-		MigrationStatus migrationStatus = snapshot.get(tableName);
-		migrationStatus.updateVDP(VDPid, status);
-		zKserver.setMigrationStatus(tableName, migrationStatus);
+		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
+		snapshot.put(tableName, migStatus);
 		zKserver.close();
 		zKserver=null;
 		log.debug(Thread.currentThread().getName() +
-				" updated migration status to "+status.name()+" for VDP: "+tableName+"/"+VDPid);
+				" updated migration status to "+migrateVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+		return migrateVDP.equals(VDPstatus.UNDER_MIGRATION) ? true : false;
 	}
 	
-	private void updateMigrationStatusTWC(String tableName, int VDPid, VDPstatus status) throws Exception{
+	public boolean notifyFinishedMigration(String tableName, int VDPid) throws ClassNotFoundException, IOException{
 		ZKserver zKserver = new ZKserver(connectString);
-		MigrationStatus migrationStatus = zKserver.getMigrationStatus(tableName);
-		migrationStatus.updateVDP(VDPid, status);
-		zKserver.setMigrationStatus(tableName, migrationStatus);
+		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+		VDPstatus migratedVDP = migStatus.finish_migrateVDP(VDPid);
 		zKserver.close();
 		zKserver=null;
 		log.debug(Thread.currentThread().getName() +
-				" updated migration status to "+status.name()+" for VDP: "+tableName+"/"+VDPid);
+				" updated migration status to "+migratedVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+		return migratedVDP.equals(VDPstatus.MIGRATED) ? true : false;
 	}
 	
 	/**
@@ -320,8 +322,7 @@ public abstract class AbstractDatabase implements Runnable{
 				int retries = 0;
 				while(!proof && retries <= 3){
 					try {
-						updateMigrationStatusTWC(cf, VDPid, VDPstatus.MIGRATED);
-						proof = true;
+						proof = notifyFinishedMigration(cf, VDPid);
 					} catch (Exception e) {
 						log.error("Unable to update MigrationStatus for VDP "+VDPid+
 								" in table "+cf, e);
