@@ -413,6 +413,8 @@ public class Datastore extends AbstractDatabase {
 		Datastore datastore = (Datastore) db;
 		//List<String> kinds = datastore.getAllKinds();
 		Set<String> kinds = snapshot.keySet();
+		//TODO: removing Fabio test kind. Remeber to remove in final version
+		kinds.remove("usertable");
 		int thread_id = 0;
 		
 		for(String kind : kinds){
@@ -429,7 +431,14 @@ public class Datastore extends AbstractDatabase {
 	        for(int VDPid = 0;VDPid<=totalVDPs;VDPid++){
 	        		//announcing the migration status for the new VDP
         			try {
-        				updateMigrationStatus(kind, VDPid, VDPstatus.UNDER_MIGRATION);
+        				log.debug(Thread.currentThread().getName()+
+    							" Trying to migrate kind "+kind+
+    							", VDP "+VDPid);
+        				while(!canMigrate(kind, VDPid)){
+        					log.debug(Thread.currentThread().getName()+
+        							" I currently can't migrate VDP "+VDPid);
+        					Thread.sleep(300);
+        				}
         			} catch (Exception e1) {
         				log.error("Error setting the initial migration status for kind: "+kind, e1);
         				return null;
@@ -477,7 +486,11 @@ public class Datastore extends AbstractDatabase {
 	        		//there's no reason why that VDP should figure as "NOT_MIGRATED"
 	        		if(actualEntitiesNumber==0){
 	        			try {
-						updateMigrationStatus(kind, VDPid, VDPstatus.MIGRATED);
+	        				while(!notifyFinishedMigration(kind, VDPid)){
+	        					log.debug(Thread.currentThread().getName()+
+	        							"I currently can't set VDP "+VDPid+" to migrated");
+	        					Thread.sleep(300);
+	        				}
 					} catch (Exception e) {
 						log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
         					return null;
