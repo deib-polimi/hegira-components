@@ -98,7 +98,7 @@
   <build>
       <resources>
         <resource>
-            <directory>resource</directory>
+            <directory>src/main/resources</directory>
             <includes>
                 <include>**/*.properties</include>
             </includes>
