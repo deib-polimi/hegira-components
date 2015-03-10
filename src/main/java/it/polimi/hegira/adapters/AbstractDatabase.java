@@ -258,7 +258,7 @@ public abstract class AbstractDatabase implements Runnable{
 				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
 				//automatically setting the VDPStatus to NOT_MIGRATED
 				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
-				boolean setted = zKserver.setMigrationStatus(tbl, status);
+				boolean setted = zKserver.setFreshMigrationStatus(tbl, status);
 				snapshot.put(tbl, status);
 				log.debug(Thread.currentThread().getName()+
 						" Added table "+tbl+" to snapshot with seqNr: "+seqNr+" and totalVDPs: "+totalVDPs);
@@ -275,10 +275,11 @@ public abstract class AbstractDatabase implements Runnable{
 				" unlocked queries...");
 	}
 	
-	public boolean canMigrate(String tableName, int VDPid) throws ClassNotFoundException, IOException{
+	public boolean canMigrate(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
 		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
+		zKserver.setFreshMigrationStatus(tableName, migStatus);
 		snapshot.put(tableName, migStatus);
 		zKserver.close();
 		zKserver=null;
@@ -287,10 +288,11 @@ public abstract class AbstractDatabase implements Runnable{
 		return migrateVDP.equals(VDPstatus.UNDER_MIGRATION) ? true : false;
 	}
 	
-	public boolean notifyFinishedMigration(String tableName, int VDPid) throws ClassNotFoundException, IOException{
+	protected boolean notifyFinishedMigration(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
 		VDPstatus migratedVDP = migStatus.finish_migrateVDP(VDPid);
+		zKserver.setFreshMigrationStatus(tableName, migStatus);
 		zKserver.close();
 		zKserver=null;
 		log.debug(Thread.currentThread().getName() +
