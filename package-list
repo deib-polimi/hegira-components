@@ -1,0 +1,9 @@
+it.polimi.hegira
+it.polimi.hegira.adapters
+it.polimi.hegira.adapters.datastore
+it.polimi.hegira.adapters.tables
+it.polimi.hegira.exceptions
+it.polimi.hegira.models
+it.polimi.hegira.queue
+it.polimi.hegira.transformers
+it.polimi.hegira.utils
