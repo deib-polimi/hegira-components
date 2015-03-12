@@ -1,6 +1,7 @@
 # hegira-components
 
-Usage: java -jar hegira-components.jar [options]
+## Usage: 
+java -jar hegira-components.jar [options]
 
   Options:
   
@@ -10,6 +11,6 @@ Usage: java -jar hegira-components.jar [options]
        
        Default: localhost
        
-  * --type, -t
-  
+    --type, -t
+   
        launch a SRC or a TWC
