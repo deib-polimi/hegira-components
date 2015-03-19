@@ -1,14 +1,16 @@
 package it.polimi.hegira.utils;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
-
+/**
+ * Utility class to retrieve data from properties files.
+ * @author Marco Scavuzzo
+ *
+ */
 public class PropertiesManager {
 	private transient static Logger log = Logger.getLogger(PropertiesManager.class);
 	

@@ -7,6 +7,8 @@ import it.polimi.hegira.models.Metamodel;
 
 
 /**
+ * Interface defining the methods to perform the transformations
+ * from and to the intermediate meta-model.
  * @author Marco Scavuzzo
  *
  */

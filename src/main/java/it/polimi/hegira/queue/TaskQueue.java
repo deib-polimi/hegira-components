@@ -33,6 +33,13 @@ public class TaskQueue {
 	protected int THREADS_NO = 10;
 	private int MAX_THREADS_NO = 60;
 
+	/**
+	 * Creates a task queue between the SRC and the TWC.
+	 * @param mode The component calling it, i.e. SRC or TWC
+	 * @param threads The number of threads that will consume from the queue (only for the TWC).
+	 * @param queueAddress The address where the RabbitMQ broker is deployed. Default: localhost
+	 * @throws QueueException If a connection cannot be established.
+	 */
 	public TaskQueue(String mode, int threads, String queueAddress) throws QueueException{
 		if(mode==null) return;
 		
@@ -128,6 +135,11 @@ public class TaskQueue {
 		}
 	}
 	
+	/**
+	 * In case a message cannot be processed properly a negative acknowledgment must be sent.
+	 * @param delivery The message that was not processed.
+	 * @throws QueueException
+	 */
 	public void sendNack(Delivery delivery) throws QueueException{
 		try {
 			/**
@@ -148,7 +160,7 @@ public class TaskQueue {
 	}
 	
 	/**
-	 * Returns an approxiamation of the messages present in the queue.
+	 * Returns an approximation of the messages present in the queue.
 	 * NB. Sometimes the count may be 0.
 	 * @param queue_name The name of the queue to query.
 	 * @return	The number of messages in the queue.
@@ -162,6 +174,10 @@ public class TaskQueue {
 		}
 	}
 	
+	/**
+	 * Gets the task queue consumer.
+	 * @return The Queuing consumer.
+	 */
 	public QueueingConsumer getConsumer(){
 		return consumer;
 	}
@@ -170,6 +186,11 @@ public class TaskQueue {
 		return TASK_QUEUE_NAME;
 	}
 	
+	/**
+	 * When called, determines if the SRC produces too fast for the TWC which consumes.
+	 * If it is the case, it slows down the production.
+	 * Should be used only for non-partitioned migration.
+	 */
 	public void slowDownProduction(){
 		int queueElements = 0;
 		long previousQueueCheckTime=0;

@@ -115,11 +115,13 @@ public abstract class AbstractDatabase implements Runnable{
 	*/
 	protected abstract Metamodel toMyModel(AbstractDatabase model);
 	/**
-	* Suggestion: To be called inside a try-finally block. Should always be disconnected
-	* @throws ConnectException
-	*/
+	 * Start a connection towards the database. 
+	 * Suggestion: To be called inside a try-finally block. Should always be disconnected
+	 * @throws ConnectException
+	 */
 	public abstract void connect() throws ConnectException;
 	/**
+	 * Disconnects and closes all connections to the database.
 	* Suggestion: To be called inside a finally block
 	*/
 	public abstract void disconnect();
@@ -133,9 +135,9 @@ public abstract class AbstractDatabase implements Runnable{
 	protected abstract Metamodel toMyModelPartitioned(AbstractDatabase model);
 	
 	/**
-	 * Template method
-	 * @param component
-	 * @return
+	 * Template method which performs the non-partitioned data migration.
+	 * @param component A string representing the component, i.e. SRC or TWC
+	 * @return true if the migration has completed successfully from the point of view of the component who called it.
 	 */
 	public final boolean switchOver(String component){
 		final AbstractDatabase thiz = this;
@@ -275,6 +277,13 @@ public abstract class AbstractDatabase implements Runnable{
 				" unlocked queries...");
 	}
 	
+	/**
+	 * Tells the SRC if it is allowed to migrate a given VDP for a given table.
+	 * @param tableName The name of the table to migrate.
+	 * @param VDPid The id of the VDP to be migrated.
+	 * @return true if it is possible to migrate the given VDP, false otherwise.
+	 * @throws Exception ZooKeeper exception
+	 */
 	public boolean canMigrate(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
@@ -288,6 +297,13 @@ public abstract class AbstractDatabase implements Runnable{
 		return migrateVDP.equals(VDPstatus.UNDER_MIGRATION) ? true : false;
 	}
 	
+	/**
+	 * Called from the TWC to announce the complete migration of a given VDP.
+	 * @param tableName The table name.
+	 * @param VDPid The id of the VDP the TWC has finished to migrate.
+	 * @return true if the operation succeeded, false otherwise.
+	 * @throws Exception ZooKeeper exception.
+	 */
 	protected boolean notifyFinishedMigration(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
@@ -306,6 +322,12 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	public abstract List<String> getTableList();
 	
+	/**
+	 * When migrated in a partitioned way, this method MUST be called by the TWC in order to 
+	 * report that an entity has been migrated.
+	 * The method updates the counters relative to the VDP that contains the entity.
+	 * @param myModel The Metamodel entity.
+	 */
 	public void updateVDPsCounters(Metamodel myModel){
 		Integer VDPid = VdpUtils.getVDP(Integer.parseInt(myModel.getRowKey()), vdpSize);
 		Map<String, Integer> vdpSizeMap = myModel.getActualVdpSize();
