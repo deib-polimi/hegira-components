@@ -3,8 +3,10 @@ package it.polimi.hegira.adapters.datastore;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift.TDeserializer;
@@ -18,6 +20,7 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entities;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.QueryResultList;
@@ -38,6 +41,10 @@ import it.polimi.hegira.transformers.DatastoreTransformer;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
+import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
+import it.polimi.hegira.zkWrapper.ZKclient;
+import it.polimi.hegira.zkWrapper.ZKserver;
 
 public class Datastore extends AbstractDatabase {
 	private static Logger log = Logger.getLogger(Datastore.class);
@@ -125,8 +132,6 @@ public class Datastore extends AbstractDatabase {
 
 	@Override
 	protected Metamodel toMyModel(AbstractDatabase db) {
-		//TODO: implement VDPs retrieval
-		
 		Datastore datastore = (Datastore) db;
 		List<String> kinds = datastore.getAllKinds();
 		int thread_id = 0;
@@ -290,6 +295,20 @@ public class Datastore extends AbstractDatabase {
 		}
 	}
 	
+	private Map<Key,Entity> getEntitiesByKeys(List<Integer> keys, String kind){
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		//building Datastore keys
+		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
+		for(Integer ik : keys){
+			Key dk = KeyFactory.createKey(kind, ik.toString());
+			dKeys.add(dk);
+		}
+		//querying for the given keys
+		return connectionList.get(thread_id).ds.get(dKeys);
+	}
+	
 	/**
     * Query for a given entity type
     * @param ds The datastore object to connect to the actual datastore
@@ -358,7 +377,7 @@ public class Datastore extends AbstractDatabase {
    }
    
    /**
-    * All entities' kinds contained in the datastore, excluding statistic ones.
+    * All entities kinds contained in the Datastore, excluding statistic ones.
     * @return  A list containing all the kinds
     */
    public List<String> getAllKinds(){
@@ -388,4 +407,114 @@ public class Datastore extends AbstractDatabase {
 	   	Key parentKey = key.getParent();
 	   	return (parentKey==null) ? true : false;
    }
+
+	@Override
+	protected Metamodel toMyModelPartitioned(AbstractDatabase db) {
+		Datastore datastore = (Datastore) db;
+		//List<String> kinds = datastore.getAllKinds();
+		Set<String> kinds = snapshot.keySet();
+		//TODO: removing Fabio test kind. Remeber to remove in final version
+		kinds.remove("usertable");
+		int thread_id = 0;
+		
+		for(String kind : kinds){
+			long i=0;
+			//Create a new instance of the Thrift Serializer
+	        TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+	        
+	        //retrieving the total number of entities written so far for this kind.
+	        int maxSeq = snapshot.get(kind).getLastSeqNr();
+	        //calculating the total number of VDPs for this kind
+	        int totalVDPs = snapshot.get(kind).getTotalVDPs(vdpSize);
+	        
+	        //extracting entities per each VDP
+	        for(int VDPid = 0;VDPid<=totalVDPs;VDPid++){
+	        		//announcing the migration status for the new VDP
+        			try {
+        				log.debug(Thread.currentThread().getName()+
+    							" Trying to migrate kind "+kind+
+    							", VDP "+VDPid);
+        				while(!canMigrate(kind, VDPid)){
+        					log.debug(Thread.currentThread().getName()+
+        							" I currently can't migrate VDP "+VDPid);
+        					Thread.sleep(300);
+        				}
+        			} catch (Exception e1) {
+        				log.error("Error setting the initial migration status for kind: "+kind, e1);
+        				return null;
+        			}
+	        		//generating ids from the VDP
+	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+	        		if(VDPid == 0){
+	        			if(ids.get(0) == 0)
+	        				ids.remove(0);
+	        		}
+	        		
+	        		log.debug(Thread.currentThread().getName() +
+	        				" Getting entities for VDP: "+kind+"/"+VDPid);
+	        		//getting entities from the Datastore
+	        		Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+	        		
+	        		//getting the effective #entities to be piggybacked with every Metamodel entity
+	        		int actualEntitiesNumber = result.size();
+	        		
+	        		//Mapping entities to the Metamodel and sending it to the queue.
+	        		for(Entity entity : result.values()){
+					DatastoreModel dsModel = new DatastoreModel(entity);
+					dsModel.setAncestorString(entity.getKey().toString());
+					DatastoreTransformer dt = new DatastoreTransformer();
+					Metamodel myModel = dt.toMyModel(dsModel);
+					//Piggybacking the actual number of entities the TWC should expect.
+					HashMap<String, Integer> counters = new HashMap<String, Integer>();
+					counters.put(entity.getKind(), actualEntitiesNumber);
+					myModel.setActualVdpSize(counters);
+					
+					if(myModel!=null){
+						try {
+							taskQueues.get(thread_id).publish(serializer.serialize(myModel));
+							i++;
+						} catch (QueueException | TException e) {
+							log.error("Serialization Error: ", e);
+						}
+					}
+				}
+	        		log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
+	        				+VDPid+": "+actualEntitiesNumber);
+	        		
+	        		//in the event that the client application requested too many ids, so that an entire VDP is empty,
+	        		//or in the case the client application has removed all entities in a VDP...
+	        		//there's no reason why that VDP should figure as "NOT_MIGRATED"
+	        		if(actualEntitiesNumber==0){
+	        			try {
+	        				while(!notifyFinishedMigration(kind, VDPid)){
+	        					log.debug(Thread.currentThread().getName()+
+	        							"I currently can't set VDP "+VDPid+" to migrated");
+	        					Thread.sleep(300);
+	        				}
+					} catch (Exception e) {
+						log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+        					return null;
+					}
+	        		}
+					
+				if(i%5000==0)
+					taskQueues.get(0).slowDownProduction();
+				
+	        }
+	        //Finish all assigned vdps for this kind
+	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities of kind "+kind);
+		}
+		return null;
+	}
+
+	@Override
+	public List<String> getTableList() {
+		return getAllKinds();
+	}
+
+	@Override
+	protected AbstractDatabase fromMyModelPartitioned(Metamodel mm) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

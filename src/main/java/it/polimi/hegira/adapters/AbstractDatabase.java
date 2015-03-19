@@ -5,9 +5,20 @@ import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.PropertiesManager;
+import it.polimi.hegira.vdp.VdpUtils;
+import it.polimi.hegira.zkWrapper.MigrationStatus;
+import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
+import it.polimi.hegira.zkWrapper.ZKclient;
+import it.polimi.hegira.zkWrapper.ZKserver;
+import it.polimi.hegira.utils.VDPsCounters;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -19,6 +30,23 @@ public abstract class AbstractDatabase implements Runnable{
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
 	protected int THREADS_NO = 0;
 	//protected int thread_id;
+	
+	//String tableName
+	//MigrationStatus the migration status for that table
+	protected HashMap<String, MigrationStatus> snapshot;
+	protected int vdpSize;
+	String connectString = PropertiesManager.getZooKeeperConnectString();
+	//ugly but for prototyping...
+	//(normal || partitioned)
+	private String behavior = "normal"; 
+	
+	/**
+	 * VDPsCounters
+	 * K1 tableName
+	 * V1-K2 VDPid
+	 * V1-V2 VDP counter 
+	 */
+	protected VDPsCounters vdpsCounters;
 	
 	/**
 	* Constructs a general database object
@@ -34,6 +62,7 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues=new ArrayList<TaskQueue>(1);
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
+					snapshot = new HashMap<String, MigrationStatus>();
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
@@ -47,6 +76,8 @@ public abstract class AbstractDatabase implements Runnable{
 						taskQueues.add(new TaskQueue(options.get("mode"), 
 							Integer.parseInt(options.get("threads")), 
 							options.get("queue-address")));
+					
+					vdpsCounters = new VDPsCounters();
 					break;
 				default:
 					log.error(Thread.currentThread().getName()+
@@ -67,6 +98,15 @@ public abstract class AbstractDatabase implements Runnable{
 	* @return returns the converted model
 	*/
 	protected abstract AbstractDatabase fromMyModel(Metamodel mm);
+	
+	/**
+	* Encapsulate the logic contained inside the models to map to the intermediate model
+	* to a DB in a partitioned way.
+	* @param mm The intermediate model
+	* @return returns the converted model
+	*/
+	protected abstract AbstractDatabase fromMyModelPartitioned(Metamodel mm);
+	
 	/**
 	* Encapsulate the logic contained inside the models to map a DB to the intermediate
 	* model
@@ -75,22 +115,33 @@ public abstract class AbstractDatabase implements Runnable{
 	*/
 	protected abstract Metamodel toMyModel(AbstractDatabase model);
 	/**
-	* Suggestion: To be called inside a try-finally block. Should always be disconnected
-	* @throws ConnectException
-	*/
+	 * Start a connection towards the database. 
+	 * Suggestion: To be called inside a try-finally block. Should always be disconnected
+	 * @throws ConnectException
+	 */
 	public abstract void connect() throws ConnectException;
 	/**
+	 * Disconnects and closes all connections to the database.
 	* Suggestion: To be called inside a finally block
 	*/
 	public abstract void disconnect();
 	
 	/**
-	 * Template method
-	 * @param component
+	 * Encapsulate the logic contained inside the models to map a DB to the intermediate
+	 * model, reading from the source database in a virtually partitioned way
+	 * @param model
 	 * @return
+	 */
+	protected abstract Metamodel toMyModelPartitioned(AbstractDatabase model);
+	
+	/**
+	 * Template method which performs the non-partitioned data migration.
+	 * @param component A string representing the component, i.e. SRC or TWC
+	 * @return true if the migration has completed successfully from the point of view of the component who called it.
 	 */
 	public final boolean switchOver(String component){
 		final AbstractDatabase thiz = this;
+		behavior = "normal";
 		
 		if(component.equals("SRC")){
 			(new Thread() {
@@ -118,16 +169,191 @@ public abstract class AbstractDatabase implements Runnable{
 		return true;
 	}
 	
+	/**
+	 * Template method
+	 * Performs the switchOver in a virtually partitioned way.
+	 * The TWC part is unchanged with respect to the switchOver method.
+	 * @param component The name of the component (i.e., SRC or TWC)
+	 * @return
+	 */
+	public final boolean switchOverPartitioned(String component){
+		final AbstractDatabase thiz = this;
+		behavior = "partitioned";
+		try {
+			vdpSize = new ZKserver(connectString).getVDPsize();
+			log.debug("Got VDPsize = "+vdpSize);
+		} catch (Exception e) {
+			log.error("Unable to retrieve VDP size", e);
+		}
+		
+		if(component.equals("SRC")){
+			(new Thread() {
+				@Override public void run() {
+					//thread_id=0;
+					try {
+						thiz.connect();
+						log.debug(Thread.currentThread().getName()+
+								" creating snapshot...");
+						thiz.createSnapshot(thiz.getTableList());
+						thiz.toMyModelPartitioned(thiz);
+					} catch (ConnectException e) {
+						e.printStackTrace();
+					} catch (Exception e) {
+						e.printStackTrace();
+					} finally{
+						thiz.disconnect();
+					}     
+				}
+			}).start();
+		}else if(component.equals("TWC")){
+			//executing the consumers
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
+			for(int i=0;i<thiz.THREADS_NO;i++){
+				//thread_id=i;
+				executor.execute(thiz);
+			}
+		}
+		return true;
+	}
+	
 	@Override
 	public void run() {
 		try {
 			this.connect();
 			log.debug("Starting consumer thread");
-			this.fromMyModel(null);
+			if(behavior.equals("normal"))
+				this.fromMyModel(null);
+			else if(behavior.equals("partitioned")){
+				this.fromMyModelPartitioned(null);
+			}
 		} catch (ConnectException e) {
 			log.error(Thread.currentThread().getName() +
 					" Unable to connect to the destination database!", e);
 		}	
 	}
 
+	
+
+	/**
+	 * Creates a new snapshot of the source database by considering just 
+	 * the list of tables given as input.
+	 * Notice that the previous snapshot data will be deleted.
+	 * @param tablesList The list of tables that will be considered to create the snapshot.
+	 * @throws Exception ZK errors, interruptions, etc.
+	 */
+	protected void createSnapshot(List<String> tablesList) throws Exception{
+		//String connectString = PropertiesManager.getZooKeeperConnectString();
+		ZKclient zKclient = new ZKclient(connectString);
+		ZKserver zKserver = new ZKserver(connectString);
+		//set the queryLock used as a flag to block query propagation 
+		//until the snapshot has been completely created.
+		zKserver.lockQueries();
+		log.debug(Thread.currentThread().getName()+
+				" locking queries...");
+		
+		try {
+			//getting the VDPsize
+			//vdpSize = zKserver.getVDPsize();
+			for(String tbl : tablesList){
+				int seqNr = zKclient.getCurrentSeqNr(tbl);
+				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
+				//automatically setting the VDPStatus to NOT_MIGRATED
+				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
+				boolean setted = zKserver.setFreshMigrationStatus(tbl, status);
+				snapshot.put(tbl, status);
+				log.debug(Thread.currentThread().getName()+
+						" Added table "+tbl+" to snapshot with seqNr: "+seqNr+" and totalVDPs: "+totalVDPs);
+			}
+		} catch (Exception e) {
+			log.error(Thread.currentThread().getName() +
+					" Unable to create a snapshot!", e);
+		}
+		
+		//release the queryLock
+		zKserver.unlockQueries();
+		zKserver.close();
+		log.debug(Thread.currentThread().getName()+
+				" unlocked queries...");
+	}
+	
+	/**
+	 * Tells the SRC if it is allowed to migrate a given VDP for a given table.
+	 * @param tableName The name of the table to migrate.
+	 * @param VDPid The id of the VDP to be migrated.
+	 * @return true if it is possible to migrate the given VDP, false otherwise.
+	 * @throws Exception ZooKeeper exception
+	 */
+	public boolean canMigrate(String tableName, int VDPid) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
+		zKserver.setFreshMigrationStatus(tableName, migStatus);
+		snapshot.put(tableName, migStatus);
+		zKserver.close();
+		zKserver=null;
+		log.debug(Thread.currentThread().getName() +
+				" updated migration status to "+migrateVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+		return migrateVDP.equals(VDPstatus.UNDER_MIGRATION) ? true : false;
+	}
+	
+	/**
+	 * Called from the TWC to announce the complete migration of a given VDP.
+	 * @param tableName The table name.
+	 * @param VDPid The id of the VDP the TWC has finished to migrate.
+	 * @return true if the operation succeeded, false otherwise.
+	 * @throws Exception ZooKeeper exception.
+	 */
+	protected boolean notifyFinishedMigration(String tableName, int VDPid) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+		VDPstatus migratedVDP = migStatus.finish_migrateVDP(VDPid);
+		zKserver.setFreshMigrationStatus(tableName, migStatus);
+		zKserver.close();
+		zKserver=null;
+		log.debug(Thread.currentThread().getName() +
+				" updated migration status to "+migratedVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+		return migratedVDP.equals(VDPstatus.MIGRATED) ? true : false;
+	}
+	
+	/**
+	 * Returns a list containing all the tables of the database.
+	 * @return The list of tables.
+	 */
+	public abstract List<String> getTableList();
+	
+	/**
+	 * When migrated in a partitioned way, this method MUST be called by the TWC in order to 
+	 * report that an entity has been migrated.
+	 * The method updates the counters relative to the VDP that contains the entity.
+	 * @param myModel The Metamodel entity.
+	 */
+	public void updateVDPsCounters(Metamodel myModel){
+		Integer VDPid = VdpUtils.getVDP(Integer.parseInt(myModel.getRowKey()), vdpSize);
+		Map<String, Integer> vdpSizeMap = myModel.getActualVdpSize();
+		Set<String> columnFamilies = vdpSizeMap.keySet();
+		int size = (int) Math.pow(10, vdpSize);
+		for(String cf : columnFamilies){
+			int updatedValue = vdpsCounters.putAndIncrementCounter(cf, VDPid, size);
+			//log.debug(Thread.currentThread().getName()+
+			//		"\n updating VDPs Counters: "
+			//		+"piggybacked value: "+vdpSizeMap.get(cf)
+			//		+ " set counter "+cf+"/"+VDPid+" to: "+updatedValue);
+			
+			//check if we finished to migrate an entire VDP
+			if(updatedValue>=vdpSizeMap.get(cf)){
+				boolean proof = false;
+				int retries = 0;
+				while(!proof && retries <= 3){
+					try {
+						proof = notifyFinishedMigration(cf, VDPid);
+					} catch (Exception e) {
+						log.error("Unable to update MigrationStatus for VDP "+VDPid+
+								" in table "+cf, e);
+						retries++;
+					}
+				}
+			}
+		}
+	}
 }

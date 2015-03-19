@@ -31,6 +31,11 @@ public class ServiceQueue {
 	private String LISTEN_RK;
 	private QueueingConsumer consumer;
 	
+	/**
+	 * Creates a service queue between the given component and hegira-api.
+	 * @param componentType The type of component creating the queue, i.e. SRC or TWC.
+	 * @param queueAddress The address of RabbitMQ broker.
+	 */
 	public ServiceQueue(String componentType, String queueAddress){
 		LISTEN_RK = componentType;
 		
@@ -99,8 +104,8 @@ public class ServiceQueue {
 	
 	/**
 	 * Writes a message in the queue with the given routing key.
-	 * @param routingKey
-	 * @param messageBody
+	 * @param routingKey The routing key.
+	 * @param messageBody The message to be sent.
 	 * @throws QueueException if an error has occurred.
 	 */
 	public void publish(String routingKey, byte[] messageBody) throws QueueException{
@@ -123,10 +128,19 @@ public class ServiceQueue {
 		}
 	}
 	
+	/**
+	 * Used by the SRC or the TWC to announce thei presence to hegira-api component.
+	 * @throws QueueException
+	 */
 	public void announcePresence() throws QueueException{
 		publish(API_PUBLISH_RK, LISTEN_RK.getBytes());
 	}
 	
+	/**
+	 * Listens for commands sent by hegira-api component
+	 * @return
+	 * @throws QueueException
+	 */
 	public ServiceQueueMessage receiveCommands() throws QueueException{
 		
 		/**
@@ -160,6 +174,10 @@ public class ServiceQueue {
 		
 	}
 	
+	/**
+	 * Gets queuing consumer.
+	 * @return The queuing consumer.
+	 */
 	public QueueingConsumer getConsumer(){
 		return consumer;
 	}

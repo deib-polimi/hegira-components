@@ -56,7 +56,7 @@ public class Constants {
 	
 	/**
 	* CREDENTIALS PROPERTIES
-	* Properties' names stored in CREDENTIALS FILE
+	* Properties names stored in CREDENTIALS FILE
 	*/
 	public static final String AZURE_PROP = "azure.storageConnectionString";
 	public static final String DATASTORE_USERNAME = "datastore.username";
@@ -70,6 +70,7 @@ public class Constants {
 		list.add(DATASTORE_SERVER);
 		return list;
 	}
+	public static final String ZK_CONNECTSTRING = "zookeeper.connectString";
 	
 	/**
 	* PRODUCER AND CONSUMER CONSTANTS

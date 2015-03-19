@@ -17,4 +17,8 @@ credentials.properties
 #MAC metadata
 .DS_Store
 
-target/
+/target
+/.settings
+.classpath
+.project
+.*.md.html

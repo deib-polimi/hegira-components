@@ -4,8 +4,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Hashtable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -56,16 +55,16 @@ public class Tables extends AbstractDatabase {
 		protected CloudTableClient tableClient;
 	}
 	
-	private ArrayList<ConnectionObject> connectionList;
+	private List<ConnectionObject> connectionList;
 	
 	public Tables(Map<String, String> options) {
 		super(options);
 		if(THREADS_NO>0){
-			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
+			connectionList = Collections.synchronizedList(new ArrayList<ConnectionObject>(THREADS_NO));
 			for(int i=0;i<THREADS_NO;i++)
 				connectionList.add(new ConnectionObject());
 		}else{
-			connectionList = new ArrayList<ConnectionObject>(1);
+			connectionList = Collections.synchronizedList(new ArrayList<ConnectionObject>(1));
 			connectionList.add(new ConnectionObject());
 		}
 	}
@@ -130,7 +129,7 @@ public class Tables extends AbstractDatabase {
 	@Override
 	protected Metamodel toMyModel(AbstractDatabase db) {
 		Tables azure = (Tables) db;
-		Iterable<String> tablesList = azure.getTablesList();
+		Iterable<String> tablesList = azure.getTableList();
 		int thread_id = 0;
 		if(THREADS_NO!=0)
 			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
@@ -245,7 +244,7 @@ public class Tables extends AbstractDatabase {
 				ConnectionObject co = new ConnectionObject(account, tableClient);
 				connectionList.add(thread_id,co);
 				
-				log.debug(Thread.currentThread().getName()+" - Connected");
+				log.debug(Thread.currentThread().getName()+" - Connected - co in position: "+thread_id);
 			} catch (InvalidKeyException | URISyntaxException e) {
 				e.printStackTrace();
 				throw new ConnectException(DefaultErrors.connectionError);
@@ -282,7 +281,7 @@ public class Tables extends AbstractDatabase {
 		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		if(tableName.indexOf("@")==0)
 			tableName=tableName.substring(1);
-		//log.debug("Creating table: "+tableName);
+		//log.debug(Thread.currentThread().getName()+" with thread_id="+thread_id+" Creating table: "+tableName);
 		if(isConnected()){
 			ConnectionObject connection = connectionList.get(thread_id);
 			
@@ -294,7 +293,13 @@ public class Tables extends AbstractDatabase {
 			}
 			return cloudTable;
 		}else{
-			log.info(Thread.currentThread().getName()+" - "+DefaultErrors.notConnected);
+			log.error(Thread.currentThread().getName()+" - "+DefaultErrors.notConnected);
+			try {
+				connect();
+				createTable(tableName);
+			} catch (ConnectException e) {
+				return null;
+			}
 			return null;
 		}
 	}
@@ -363,6 +368,17 @@ public class Tables extends AbstractDatabase {
 			return null;
 		}
 	}
+	
+	@Override
+	public List<String> getTableList(){
+		Iterable<String> iterable = getTablesList();
+		ArrayList<String> tableList = new ArrayList<String>();
+		for(String tbl : iterable){
+			tableList.add(tbl);
+		}
+		return tableList;
+	}
+	
 	/**
 	 * Extracts the entities contained in a given table
 	 * @param tableName The table name
@@ -441,4 +457,79 @@ public class Tables extends AbstractDatabase {
 		ConnectionObject connection = connectionList.get(thread_id);
 		connection.tableClient = tableClient;
 	}
+
+	@Override
+	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	protected AbstractDatabase fromMyModelPartitioned(Metamodel mm) {
+		//TWC
+		log.debug(Thread.currentThread().getName()+" Hi I'm the AZURE consumer!");
+		
+		//Instantiate the Thrift Deserializer
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		int thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		
+		while(true){
+			try {
+
+				//log.debug(Thread.currentThread().getName() + 
+				//		" - getting taskQueue with id: "+thread_id);
+				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery();
+				if(delivery!=null){
+					Metamodel myModel = new Metamodel();
+					deserializer.deserialize(myModel, delivery.getBody());
+					
+					AzureTablesTransformer att = new AzureTablesTransformer();
+					AzureTablesModel fromMyModel = att.fromMyModel(myModel);
+					List<DynamicTableEntity> entities = fromMyModel.getEntities();
+					
+					
+					String tableName = fromMyModel.getTableName();
+					CloudTable tbl = createTable(tableName);
+					if(tbl==null){
+						taskQueues.get(thread_id).sendNack(delivery);
+						log.info("Sending Nack!! for entity(/ies)");
+						return null;
+					}
+					for(DynamicTableEntity entity : entities){
+						TableResult ie = insertEntity(tableName, entity);
+						if(ie==null){
+							taskQueues.get(thread_id).sendNack(delivery);
+							log.info("Sending Nack!! for entity(/ies)");
+							return null;
+						}
+						count++;
+						if(count%100==0)
+							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
+					}
+					
+					taskQueues.get(thread_id).sendAck(delivery);
+					//incrementing the VDPsCounters
+					updateVDPsCounters(myModel);	
+					////////////////////////////////
+				}else{
+					log.debug(Thread.currentThread().getName() + " - The queue " +
+							TaskQueue.getDefaultTaskQueueName() + " is empty");
+				}
+			} catch (ShutdownSignalException | ConsumerCancelledException
+					| InterruptedException e) {
+				log.error(Thread.currentThread().getName() + " - Cannot read next delivery from the queue " + 
+					TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (TException e) {
+				log.error(Thread.currentThread().getName() + " - Error deserializing message ", e);
+			} catch (QueueException e) {
+				log.error(Thread.currentThread().getName() + " - Error sending an acknowledgment to the queue " + 
+						TaskQueue.getDefaultTaskQueueName(), e);
+			} catch (URISyntaxException e) {
+				log.error(Thread.currentThread().getName() + " - Error operating on Azure Tables ", e);
+			} catch (StorageException e) {
+				log.error(Thread.currentThread().getName() + " - Error storing data on Azure Tables ", e);
+			}
+		}
+	}
+	
 }

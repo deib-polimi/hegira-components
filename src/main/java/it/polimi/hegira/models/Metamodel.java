@@ -39,6 +39,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   private static final org.apache.thrift.protocol.TField COLUMN_FAMILIES_FIELD_DESC = new org.apache.thrift.protocol.TField("columnFamilies", org.apache.thrift.protocol.TType.LIST, (short)2);
   private static final org.apache.thrift.protocol.TField ROW_KEY_FIELD_DESC = new org.apache.thrift.protocol.TField("rowKey", org.apache.thrift.protocol.TType.STRING, (short)3);
   private static final org.apache.thrift.protocol.TField COLUMNS_FIELD_DESC = new org.apache.thrift.protocol.TField("columns", org.apache.thrift.protocol.TType.MAP, (short)4);
+  private static final org.apache.thrift.protocol.TField ACTUAL_VDP_SIZE_FIELD_DESC = new org.apache.thrift.protocol.TField("actualVdpSize", org.apache.thrift.protocol.TType.MAP, (short)5);
 
   private static final Map<Class<? extends IScheme>, SchemeFactory> schemes = new HashMap<Class<? extends IScheme>, SchemeFactory>();
   static {
@@ -50,13 +51,15 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   public List<String> columnFamilies; // optional
   public String rowKey; // required
   public Map<String,List<Column>> columns; // required
+  public Map<String,Integer> actualVdpSize; // optional
 
   /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     PARTITION_GROUP((short)1, "partitionGroup"),
     COLUMN_FAMILIES((short)2, "columnFamilies"),
     ROW_KEY((short)3, "rowKey"),
-    COLUMNS((short)4, "columns");
+    COLUMNS((short)4, "columns"),
+    ACTUAL_VDP_SIZE((short)5, "actualVdpSize");
 
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
@@ -79,6 +82,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
           return ROW_KEY;
         case 4: // COLUMNS
           return COLUMNS;
+        case 5: // ACTUAL_VDP_SIZE
+          return ACTUAL_VDP_SIZE;
         default:
           return null;
       }
@@ -119,7 +124,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
   }
 
   // isset id assignments
-  private _Fields optionals[] = {_Fields.COLUMN_FAMILIES};
+  private _Fields optionals[] = {_Fields.COLUMN_FAMILIES,_Fields.ACTUAL_VDP_SIZE};
   public static final Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> metaDataMap;
   static {
     Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);
@@ -135,12 +140,16 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
             new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING), 
             new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, 
                 new org.apache.thrift.meta_data.StructMetaData(org.apache.thrift.protocol.TType.STRUCT, Column.class)))));
+    tmpMap.put(_Fields.ACTUAL_VDP_SIZE, new org.apache.thrift.meta_data.FieldMetaData("actualVdpSize", org.apache.thrift.TFieldRequirementType.OPTIONAL, 
+        new org.apache.thrift.meta_data.MapMetaData(org.apache.thrift.protocol.TType.MAP, 
+            new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING), 
+            new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32))));
     metaDataMap = Collections.unmodifiableMap(tmpMap);
     org.apache.thrift.meta_data.FieldMetaData.addStructMetaDataMap(Metamodel.class, metaDataMap);
   }
 
   public Metamodel() {
-	this.columns = new HashMap<String, List<Column>>();
+  	this.columns = new HashMap<String, List<Column>>();
 	this.columnFamilies = new ArrayList<String>();
   }
 
@@ -187,6 +196,10 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       }
       this.columns = __this__columns;
     }
+    if (other.isSetActualVdpSize()) {
+      Map<String,Integer> __this__actualVdpSize = new HashMap<String,Integer>(other.actualVdpSize);
+      this.actualVdpSize = __this__actualVdpSize;
+    }
   }
 
   public Metamodel deepCopy() {
@@ -199,6 +212,7 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
     this.columnFamilies = null;
     this.rowKey = null;
     this.columns = null;
+    this.actualVdpSize = null;
   }
 
   public String getPartitionGroup() {
@@ -323,6 +337,41 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
     }
   }
 
+  public int getActualVdpSizeSize() {
+    return (this.actualVdpSize == null) ? 0 : this.actualVdpSize.size();
+  }
+
+  public void putToActualVdpSize(String key, int val) {
+    if (this.actualVdpSize == null) {
+      this.actualVdpSize = new HashMap<String,Integer>();
+    }
+    this.actualVdpSize.put(key, val);
+  }
+
+  public Map<String,Integer> getActualVdpSize() {
+    return this.actualVdpSize;
+  }
+
+  public Metamodel setActualVdpSize(Map<String,Integer> actualVdpSize) {
+    this.actualVdpSize = actualVdpSize;
+    return this;
+  }
+
+  public void unsetActualVdpSize() {
+    this.actualVdpSize = null;
+  }
+
+  /** Returns true if field actualVdpSize is set (has been assigned a value) and false otherwise */
+  public boolean isSetActualVdpSize() {
+    return this.actualVdpSize != null;
+  }
+
+  public void setActualVdpSizeIsSet(boolean value) {
+    if (!value) {
+      this.actualVdpSize = null;
+    }
+  }
+
   public void setFieldValue(_Fields field, Object value) {
     switch (field) {
     case PARTITION_GROUP:
@@ -357,6 +406,14 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       }
       break;
 
+    case ACTUAL_VDP_SIZE:
+      if (value == null) {
+        unsetActualVdpSize();
+      } else {
+        setActualVdpSize((Map<String,Integer>)value);
+      }
+      break;
+
     }
   }
 
@@ -373,6 +430,9 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
 
     case COLUMNS:
       return getColumns();
+
+    case ACTUAL_VDP_SIZE:
+      return getActualVdpSize();
 
     }
     throw new IllegalStateException();
@@ -393,6 +453,8 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       return isSetRowKey();
     case COLUMNS:
       return isSetColumns();
+    case ACTUAL_VDP_SIZE:
+      return isSetActualVdpSize();
     }
     throw new IllegalStateException();
   }
@@ -443,6 +505,15 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       if (!(this_present_columns && that_present_columns))
         return false;
       if (!this.columns.equals(that.columns))
+        return false;
+    }
+
+    boolean this_present_actualVdpSize = true && this.isSetActualVdpSize();
+    boolean that_present_actualVdpSize = true && that.isSetActualVdpSize();
+    if (this_present_actualVdpSize || that_present_actualVdpSize) {
+      if (!(this_present_actualVdpSize && that_present_actualVdpSize))
+        return false;
+      if (!this.actualVdpSize.equals(that.actualVdpSize))
         return false;
     }
 
@@ -502,6 +573,16 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
         return lastComparison;
       }
     }
+    lastComparison = Boolean.valueOf(isSetActualVdpSize()).compareTo(other.isSetActualVdpSize());
+    if (lastComparison != 0) {
+      return lastComparison;
+    }
+    if (isSetActualVdpSize()) {
+      lastComparison = org.apache.thrift.TBaseHelper.compareTo(this.actualVdpSize, other.actualVdpSize);
+      if (lastComparison != 0) {
+        return lastComparison;
+      }
+    }
     return 0;
   }
 
@@ -555,6 +636,16 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       sb.append(this.columns);
     }
     first = false;
+    if (isSetActualVdpSize()) {
+      if (!first) sb.append(", ");
+      sb.append("actualVdpSize:");
+      if (this.actualVdpSize == null) {
+        sb.append("null");
+      } else {
+        sb.append(this.actualVdpSize);
+      }
+      first = false;
+    }
     sb.append(")");
     return sb.toString();
   }
@@ -663,6 +754,26 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
               org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
             }
             break;
+          case 5: // ACTUAL_VDP_SIZE
+            if (schemeField.type == org.apache.thrift.protocol.TType.MAP) {
+              {
+                org.apache.thrift.protocol.TMap _map10 = iprot.readMapBegin();
+                struct.actualVdpSize = new HashMap<String,Integer>(2*_map10.size);
+                for (int _i11 = 0; _i11 < _map10.size; ++_i11)
+                {
+                  String _key12;
+                  int _val13;
+                  _key12 = iprot.readString();
+                  _val13 = iprot.readI32();
+                  struct.actualVdpSize.put(_key12, _val13);
+                }
+                iprot.readMapEnd();
+              }
+              struct.setActualVdpSizeIsSet(true);
+            } else { 
+              org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
+            }
+            break;
           default:
             org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
         }
@@ -688,9 +799,9 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
           oprot.writeFieldBegin(COLUMN_FAMILIES_FIELD_DESC);
           {
             oprot.writeListBegin(new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRING, struct.columnFamilies.size()));
-            for (String _iter10 : struct.columnFamilies)
+            for (String _iter14 : struct.columnFamilies)
             {
-              oprot.writeString(_iter10);
+              oprot.writeString(_iter14);
             }
             oprot.writeListEnd();
           }
@@ -706,14 +817,14 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
         oprot.writeFieldBegin(COLUMNS_FIELD_DESC);
         {
           oprot.writeMapBegin(new org.apache.thrift.protocol.TMap(org.apache.thrift.protocol.TType.STRING, org.apache.thrift.protocol.TType.LIST, struct.columns.size()));
-          for (Map.Entry<String, List<Column>> _iter11 : struct.columns.entrySet())
+          for (Map.Entry<String, List<Column>> _iter15 : struct.columns.entrySet())
           {
-            oprot.writeString(_iter11.getKey());
+            oprot.writeString(_iter15.getKey());
             {
-              oprot.writeListBegin(new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRUCT, _iter11.getValue().size()));
-              for (Column _iter12 : _iter11.getValue())
+              oprot.writeListBegin(new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRUCT, _iter15.getValue().size()));
+              for (Column _iter16 : _iter15.getValue())
               {
-                _iter12.write(oprot);
+                _iter16.write(oprot);
               }
               oprot.writeListEnd();
             }
@@ -721,6 +832,21 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
           oprot.writeMapEnd();
         }
         oprot.writeFieldEnd();
+      }
+      if (struct.actualVdpSize != null) {
+        if (struct.isSetActualVdpSize()) {
+          oprot.writeFieldBegin(ACTUAL_VDP_SIZE_FIELD_DESC);
+          {
+            oprot.writeMapBegin(new org.apache.thrift.protocol.TMap(org.apache.thrift.protocol.TType.STRING, org.apache.thrift.protocol.TType.I32, struct.actualVdpSize.size()));
+            for (Map.Entry<String, Integer> _iter17 : struct.actualVdpSize.entrySet())
+            {
+              oprot.writeString(_iter17.getKey());
+              oprot.writeI32(_iter17.getValue());
+            }
+            oprot.writeMapEnd();
+          }
+          oprot.writeFieldEnd();
+        }
       }
       oprot.writeFieldStop();
       oprot.writeStructEnd();
@@ -752,16 +878,19 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       if (struct.isSetColumns()) {
         optionals.set(3);
       }
-      oprot.writeBitSet(optionals, 4);
+      if (struct.isSetActualVdpSize()) {
+        optionals.set(4);
+      }
+      oprot.writeBitSet(optionals, 5);
       if (struct.isSetPartitionGroup()) {
         oprot.writeString(struct.partitionGroup);
       }
       if (struct.isSetColumnFamilies()) {
         {
           oprot.writeI32(struct.columnFamilies.size());
-          for (String _iter13 : struct.columnFamilies)
+          for (String _iter18 : struct.columnFamilies)
           {
-            oprot.writeString(_iter13);
+            oprot.writeString(_iter18);
           }
         }
       }
@@ -771,16 +900,26 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       if (struct.isSetColumns()) {
         {
           oprot.writeI32(struct.columns.size());
-          for (Map.Entry<String, List<Column>> _iter14 : struct.columns.entrySet())
+          for (Map.Entry<String, List<Column>> _iter19 : struct.columns.entrySet())
           {
-            oprot.writeString(_iter14.getKey());
+            oprot.writeString(_iter19.getKey());
             {
-              oprot.writeI32(_iter14.getValue().size());
-              for (Column _iter15 : _iter14.getValue())
+              oprot.writeI32(_iter19.getValue().size());
+              for (Column _iter20 : _iter19.getValue())
               {
-                _iter15.write(oprot);
+                _iter20.write(oprot);
               }
             }
+          }
+        }
+      }
+      if (struct.isSetActualVdpSize()) {
+        {
+          oprot.writeI32(struct.actualVdpSize.size());
+          for (Map.Entry<String, Integer> _iter21 : struct.actualVdpSize.entrySet())
+          {
+            oprot.writeString(_iter21.getKey());
+            oprot.writeI32(_iter21.getValue());
           }
         }
       }
@@ -789,20 +928,20 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
     @Override
     public void read(org.apache.thrift.protocol.TProtocol prot, Metamodel struct) throws org.apache.thrift.TException {
       TTupleProtocol iprot = (TTupleProtocol) prot;
-      BitSet incoming = iprot.readBitSet(4);
+      BitSet incoming = iprot.readBitSet(5);
       if (incoming.get(0)) {
         struct.partitionGroup = iprot.readString();
         struct.setPartitionGroupIsSet(true);
       }
       if (incoming.get(1)) {
         {
-          org.apache.thrift.protocol.TList _list16 = new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRING, iprot.readI32());
-          struct.columnFamilies = new ArrayList<String>(_list16.size);
-          for (int _i17 = 0; _i17 < _list16.size; ++_i17)
+          org.apache.thrift.protocol.TList _list22 = new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRING, iprot.readI32());
+          struct.columnFamilies = new ArrayList<String>(_list22.size);
+          for (int _i23 = 0; _i23 < _list22.size; ++_i23)
           {
-            String _elem18;
-            _elem18 = iprot.readString();
-            struct.columnFamilies.add(_elem18);
+            String _elem24;
+            _elem24 = iprot.readString();
+            struct.columnFamilies.add(_elem24);
           }
         }
         struct.setColumnFamiliesIsSet(true);
@@ -813,30 +952,46 @@ public class Metamodel implements org.apache.thrift.TBase<Metamodel, Metamodel._
       }
       if (incoming.get(3)) {
         {
-          org.apache.thrift.protocol.TMap _map19 = new org.apache.thrift.protocol.TMap(org.apache.thrift.protocol.TType.STRING, org.apache.thrift.protocol.TType.LIST, iprot.readI32());
-          struct.columns = new HashMap<String,List<Column>>(2*_map19.size);
-          for (int _i20 = 0; _i20 < _map19.size; ++_i20)
+          org.apache.thrift.protocol.TMap _map25 = new org.apache.thrift.protocol.TMap(org.apache.thrift.protocol.TType.STRING, org.apache.thrift.protocol.TType.LIST, iprot.readI32());
+          struct.columns = new HashMap<String,List<Column>>(2*_map25.size);
+          for (int _i26 = 0; _i26 < _map25.size; ++_i26)
           {
-            String _key21;
-            List<Column> _val22;
-            _key21 = iprot.readString();
+            String _key27;
+            List<Column> _val28;
+            _key27 = iprot.readString();
             {
-              org.apache.thrift.protocol.TList _list23 = new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRUCT, iprot.readI32());
-              _val22 = new ArrayList<Column>(_list23.size);
-              for (int _i24 = 0; _i24 < _list23.size; ++_i24)
+              org.apache.thrift.protocol.TList _list29 = new org.apache.thrift.protocol.TList(org.apache.thrift.protocol.TType.STRUCT, iprot.readI32());
+              _val28 = new ArrayList<Column>(_list29.size);
+              for (int _i30 = 0; _i30 < _list29.size; ++_i30)
               {
-                Column _elem25;
-                _elem25 = new Column();
-                _elem25.read(iprot);
-                _val22.add(_elem25);
+                Column _elem31;
+                _elem31 = new Column();
+                _elem31.read(iprot);
+                _val28.add(_elem31);
               }
             }
-            struct.columns.put(_key21, _val22);
+            struct.columns.put(_key27, _val28);
           }
         }
         struct.setColumnsIsSet(true);
+      }
+      if (incoming.get(4)) {
+        {
+          org.apache.thrift.protocol.TMap _map32 = new org.apache.thrift.protocol.TMap(org.apache.thrift.protocol.TType.STRING, org.apache.thrift.protocol.TType.I32, iprot.readI32());
+          struct.actualVdpSize = new HashMap<String,Integer>(2*_map32.size);
+          for (int _i33 = 0; _i33 < _map32.size; ++_i33)
+          {
+            String _key34;
+            int _val35;
+            _key34 = iprot.readString();
+            _val35 = iprot.readI32();
+            struct.actualVdpSize.put(_key34, _val35);
+          }
+        }
+        struct.setActualVdpSizeIsSet(true);
       }
     }
   }
 
 }
+
