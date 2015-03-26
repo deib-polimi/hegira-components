@@ -11,8 +11,6 @@ public class CassandraColumn {
 	//Otherwise it will still be serialized
 	private Object columnValue;
 	private String valueType;
-	//columnValue could still be serialized 
-	private boolean serialized;
 	private boolean indexed;
 	
 	
@@ -27,11 +25,10 @@ public class CassandraColumn {
 	 * @param serialized
 	 * @param indexed
 	 */
-	public CassandraColumn(String columnName,Object columnValue,String valueType,boolean serialized,boolean indexed){
+	public CassandraColumn(String columnName,Object columnValue,String valueType,boolean indexed){
 		this.columnName=columnName;
 		this.columnValue=columnValue;
 		this.valueType=valueType;
-		this.serialized=serialized;
 		this.indexed=indexed;
 	}
 	
@@ -53,12 +50,7 @@ public class CassandraColumn {
 	public void setValueType(String valueType) {
 		this.valueType = valueType;
 	}
-	public boolean isSerialized() {
-		return serialized;
-	}
-	public void setSerialized(boolean serialized) {
-		this.serialized = serialized;
-	}
+
 	public boolean isIndexed() {
 		return indexed;
 	}
