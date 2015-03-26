@@ -77,5 +77,11 @@ public class Constants {
 	*/
 	public static final String PRODUCER = "producer";
 	public static final String CONSUMER = "consumer";
+	
+	/**
+	 * TYPES OF CONSISTENCY	
+	 */
+	public static final String EVENTUAL="eventual";
+	public static final String STRONG="strong";
 
 }
