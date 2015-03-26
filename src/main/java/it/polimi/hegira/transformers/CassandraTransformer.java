@@ -1,10 +1,17 @@
 package it.polimi.hegira.transformers;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.lang3.event.EventUtils;
 
+import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
+import it.polimi.hegira.models.Column;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.DefaultSerializer;
 
 /**
  * 
@@ -84,8 +91,36 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				metamodel.setPartitionGroup("@strong#strong");
 	}
 
+	/**
+	 * Map cassandra row's cells (columns) to metamodel's columns
+	 * @param metamodel
+	 * @param model
+	 */
 	private void mapColumns(Metamodel metamodel, CassandraModel model) {
-		// TODO Auto-generated method stub
+		
+		List<Column> allColumns=new ArrayList<Column>();
+		
+		for(CassandraColumn cassandraColumn:model.getColumns()){
+			//check if the column is empty
+			if(cassandraColumn.getColumnValue()!=null){
+				Column metaModColumn=new Column();
+				
+				try{
+				metaModColumn.setColumnValue(DefaultSerializer.serialize(cassandraColumn.getColumnValue()));
+				}catch(IOException ex){
+					ex.printStackTrace();
+				}
+				
+				metaModColumn.setColumnName(cassandraColumn.getColumnName());
+				metaModColumn.setIndexable(cassandraColumn.isIndexed());
+				metaModColumn.setColumnValueType(cassandraColumn.getValueType());
+				
+				allColumns.add(metaModColumn);
+			}
+		}
+		
+		//since Cassandra does not have column families I use the name of the table as the key for all the columns
+		metamodel.getColumns().put(model.getTable(), allColumns);	
 	}
 
 	/**
