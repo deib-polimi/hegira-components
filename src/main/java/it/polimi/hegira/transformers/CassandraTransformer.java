@@ -41,7 +41,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	public Metamodel toMyModel(CassandraModel model) {
 		Metamodel metamodel=new Metamodel();
 	
-		//Column families are not mapped since Cassandra does not support them
+		mapColumnsFamilies(metamodel,model);
 		mapRowKey(metamodel,model);
 		mapColumns(metamodel,model);
 		mapPartitionGroup(metamodel,model);
@@ -51,11 +51,15 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 
 	@Override
 	public CassandraModel fromMyModel(Metamodel model) {
-		// TODO Auto-generated method stub
-		return null;
+		CassandraModel cassandraModel=new CassandraModel();
+		
+		mapKey(cassandraModel,model);
+		mapTable(cassandraModel,model);
+		mapColumns(cassandraModel,model);
+		
+		return cassandraModel;
 	}
 
-	
 	public String getConsistency() {
 		return consistency;
 	}
@@ -76,6 +80,19 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	/*-----------------------------------------------------------------*/
 	/*----------------DIRECT MAPPING UTILITY METHODS-------------------*/
 	/*-----------------------------------------------------------------*/
+
+	/**
+	 * Only one column family is created. The table in which the row is contained determines its value.
+	 * 
+	 * @param metamodel
+	 * @param model
+	 */
+	private void mapColumnsFamilies(Metamodel metamodel, CassandraModel model) {
+		List<String> columnFamilies=new ArrayList<String>();
+		String tableName=model.getTable();
+		columnFamilies.add(tableName);
+		metamodel.setColumnFamilies(columnFamilies);
+	}
 
 	/**
 	 * Sets partition group in the metamodel depending on the chosen level of consistency
@@ -132,5 +149,36 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		metamodel.setRowKey(model.getKeyValue());
 	}
 	
+	
+	/*-----------------------------------------------------------------*/
+	/*----------------INVERSE MAPPING UTILITY METHODS-------------------*/
+	/*-----------------------------------------------------------------*/	
+	
+	/**
+	 *This method sets the table name taking it from the FIRST element of the list containing column families in the
+	 *meta-model.
+	 *When there are no column Families available (the metamodel contains an empty list of column families) the system 
+	 *assigns a default name to the table.
+	 * 
+	 * @param cassandraModel
+	 * @param model
+	 */
+	private void mapTable(CassandraModel cassandraModel, Metamodel model) {
+		List<String> columnFamilies=model.getColumnFamilies();
+		if(columnFamilies.size()>0){
+			cassandraModel.setTable(columnFamilies.get(0));
+		}else{
+			cassandraModel.setTable(Constants.DEFAULT_TABLE_CASSANDRA);
+		}
+	}
+
+	private void mapKey(CassandraModel cassandraModel, Metamodel model) {
+		// TODO Auto-generated method stub
+		
+	}
+	private void mapColumns(CassandraModel cassandraModel, Metamodel model) {
+		// TODO Auto-generated method stub
+		
+	}
 
 }

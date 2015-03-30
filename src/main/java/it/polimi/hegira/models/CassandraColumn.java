@@ -22,7 +22,6 @@ public class CassandraColumn {
 	 * @param columnName
 	 * @param columnValue
 	 * @param valueType
-	 * @param serialized
 	 * @param indexed
 	 */
 	public CassandraColumn(String columnName,Object columnValue,String valueType,boolean indexed){
@@ -50,7 +49,6 @@ public class CassandraColumn {
 	public void setValueType(String valueType) {
 		this.valueType = valueType;
 	}
-
 	public boolean isIndexed() {
 		return indexed;
 	}

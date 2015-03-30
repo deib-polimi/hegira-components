@@ -83,5 +83,11 @@ public class Constants {
 	 */
 	public static final String EVENTUAL="eventual";
 	public static final String STRONG="strong";
+	
+	/**
+	 * DEFAULT TABLE NAME
+	 * (used during the migration of data to Cassandra when the metamodel does NOT specify any column family)
+	 */
+	public static final String DEFAULT_TABLE_CASSANDRA="defaultTableCassandra";
 
 }
