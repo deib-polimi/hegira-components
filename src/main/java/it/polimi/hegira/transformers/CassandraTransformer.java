@@ -2,6 +2,7 @@ package it.polimi.hegira.transformers;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.lang3.event.EventUtils;
@@ -172,12 +173,40 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		}
 	}
 
+	/**
+	 * This method maps the entity key to the row key
+	 * 
+	 * @param cassandraModel
+	 * @param model
+	 */
 	private void mapKey(CassandraModel cassandraModel, Metamodel model) {
-		// TODO Auto-generated method stub
-		
+		cassandraModel.setKeyValue(model.getRowKey());
 	}
+	
+	/**
+	 * This method maps properties of the metamodel into Cassandra columns.
+	 * Before deserializing the value it checks if the data type is supported in Cassandra. 
+	 * If it is supported the value is deserialized and the type converted to one of the types supported by Cassandra.
+	 * If it is NOT supported the value is kept serialized. In this case a new column with the following structure
+	 * is added: name: <Column_name>"_Type", value: <the original data type>
+	 * 
+	 * @param cassandraModel
+	 * @param model
+	 */
 	private void mapColumns(CassandraModel cassandraModel, Metamodel model) {
-		// TODO Auto-generated method stub
+		Iterator<String> columnFamilyIterator=model.getColumnFamiliesIterator();
+		
+		while(columnFamilyIterator.hasNext()){
+			String columnFamily=columnFamilyIterator.next();
+			//get the properties contained in the actual column family
+			List<Column> columnsMeta=model.getColumns().get(columnFamily);
+			for(Column column:columnsMeta){
+				String javaType=column.getColumnValueType();
+				
+			}
+			
+		}
+		
 		
 	}
 
