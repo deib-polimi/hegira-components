@@ -202,12 +202,67 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			List<Column> columnsMeta=model.getColumns().get(columnFamily);
 			for(Column column:columnsMeta){
 				String javaType=column.getColumnValueType();
-				
-			}
-			
+				/*if(!isSupportedCollection(javaType)){
+					if(isSupported(javaType)){
+						//Deserializza e aggiorna tipo
+						//TODO
+					}else{
+						//crea nuova colonna per il tipo e lascia serializzato
+						//TODO
+					}
+				}else{
+					String type1=getFirstSimpleType(javaType);
+					String type2=getSecondSimpleType(javaType);
+					if(isSupported(type1) && isSupported(type2)){
+						//Deserializza e aggiorna tipo
+						//TODO
+					}else{
+						//crea nuova colonna per il tipo e lascia serializzato
+						//TODO
+					}
+				}*/
+				try{
+					if(!isSupportedCollection(javaType)){
+							//Deserializza e aggiorna tipo
+							//TODO
+					}else{
+						String type1=getFirstSimpleType(javaType);
+						String type2=getSecondSimpleType(javaType);
+						checkIfSupported(type1);
+						checkIfSupported(type2);
+							//Deserializza e aggiorna tipo
+							//TODO
+				}
+			 }catch(ClassNotFoundException e){
+				  //crea classe per il tipo non supportato e lascia serializzato il valore
+			 }
+		  }
 		}
-		
-		
 	}
 
+	/**
+	 * TODO
+	 */
+	private boolean isSupportedCollection(String type){
+		return true;
+	}
+	/**
+	 * TODO
+	 */
+	private String getFirstSimpleType(String completeType){
+		return null;
+	}
+	/**
+	 * TODO
+	 */
+	private String getSecondSimpleType(String completeType){
+		return null;
+	}
+	/**
+	 * TODO
+	 */
+	private void checkIfSupported(String type) throws ClassNotFoundException{
+	}
+	
+		
 }
