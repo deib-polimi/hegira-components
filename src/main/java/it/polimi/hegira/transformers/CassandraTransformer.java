@@ -201,6 +201,11 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			//get the properties contained in the actual column family
 			List<Column> columnsMeta=model.getColumns().get(columnFamily);
 			for(Column column:columnsMeta){
+				CassandraColumn cassandraColumn=new CassandraColumn();
+				
+				cassandraColumn.setColumnName(column.getColumnName());
+				cassandraColumn.setIndexed(column.isIndexable());
+				
 				String javaType=column.getColumnValueType();
 				/*if(!isSupportedCollection(javaType)){
 					if(isSupported(javaType)){
@@ -241,10 +246,19 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	}
 
 	/**
-	 * TODO
+	 * @param type
+	 * @return true if the type is one of the collections supported by Cassandra (map,list,set)
 	 */
-	private boolean isSupportedCollection(String type){
-		return true;
+	private boolean isSupportedCollection(String type) throws ClassNotFoundException{
+		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
+		if(type.contains("<") && type.contains(">")){
+			String collectionType=type.substring(0, type.indexOf("<"));
+			if(collectionType=="Map"||collectionType=="List" || collectionType=="Set"){
+				return true;
+			}else
+				throw new ClassNotFoundException();
+		}
+		return false;
 	}
 	/**
 	 * TODO
