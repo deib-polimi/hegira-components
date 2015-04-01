@@ -248,6 +248,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	/**
 	 * @param type
 	 * @return true if the type is one of the collections supported by Cassandra (map,list,set)
+	 * @throws ClassNotFoundException
 	 */
 	private boolean isSupportedCollection(String type) throws ClassNotFoundException{
 		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
@@ -261,21 +262,52 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		return false;
 	}
 	/**
-	 * TODO
+	 * Returns the first type contained as a sub type of the collection
+	 *@param completeType
+	 *@return String the first subtype of the collection
+	 * @throws ClassNotFoundException
 	 */
-	private String getFirstSimpleType(String completeType){
-		return null;
+	private String getFirstSimpleType(String completeType) throws ClassNotFoundException{
+		if(completeType.contains("<") && completeType.contains(">") && completeType.contains(",")){
+			return completeType.substring(completeType.indexOf("<")+1,completeType.indexOf(","));
+		}else
+		throw new ClassNotFoundException();
 	}
 	/**
-	 * TODO
+	 * Returns the second type contained as a sub type of the collection
+	 *@param completeType
+	 *@return the second subtype of the collection
+	 * @throws ClassNotFoundException
 	 */
-	private String getSecondSimpleType(String completeType){
-		return null;
+	private String getSecondSimpleType(String completeType) throws ClassNotFoundException{
+		if(completeType.contains("<") && completeType.contains(">") && completeType.contains(",")){
+			return completeType.substring(completeType.indexOf(",")+1,completeType.indexOf(">"));
+		}else
+		throw new ClassNotFoundException();
 	}
 	/**
-	 * TODO
+	 * Check if the simple type is supported by cassandra (simple means "not a collection").
+	 * If the type is supported the method does not perform any action.
+	 * If the type is NOT supported the method throws an exception in order to handle the problem at
+     * a higher level
+	 *@param type
+	 *@throws ClassNotFoundException 
 	 */
 	private void checkIfSupported(String type) throws ClassNotFoundException{
+		if(!(type=="String" ||
+			type=="Long" ||
+			type=="byte[]" ||
+			type=="Boolean" ||
+			type=="BigDecimal" ||
+			type=="Double" ||
+			type=="Float" ||
+			type=="InetAddress" ||
+			type=="Integer" ||
+			type=="Date" ||
+			type=="UUID" ||
+			type=="BigInteger")){
+			throw new ClassNotFoundException();
+		}
 	}
 	
 		
