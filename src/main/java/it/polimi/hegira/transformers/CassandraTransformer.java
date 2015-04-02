@@ -1,9 +1,15 @@
 package it.polimi.hegira.transformers;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.commons.lang3.event.EventUtils;
 
@@ -207,29 +213,9 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				cassandraColumn.setIndexed(column.isIndexable());
 				
 				String javaType=column.getColumnValueType();
-				/*if(!isSupportedCollection(javaType)){
-					if(isSupported(javaType)){
-						//Deserializza e aggiorna tipo
-						//TODO
-					}else{
-						//crea nuova colonna per il tipo e lascia serializzato
-						//TODO
-					}
-				}else{
-					String type1=getFirstSimpleType(javaType);
-					String type2=getSecondSimpleType(javaType);
-					if(isSupported(type1) && isSupported(type2)){
-						//Deserializza e aggiorna tipo
-						//TODO
-					}else{
-						//crea nuova colonna per il tipo e lascia serializzato
-						//TODO
-					}
-				}*/
 				try{
 					if(!isSupportedCollection(javaType)){
-							//Deserializza e aggiorna tipo
-							//TODO
+							setValueAndSimpleType(cassandraColumn,column.getColumnValue(),javaType);
 					}else{
 						String type1=getFirstSimpleType(javaType);
 						String type2=getSecondSimpleType(javaType);
@@ -240,9 +226,81 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				}
 			 }catch(ClassNotFoundException e){
 				  //crea classe per il tipo non supportato e lascia serializzato il valore
+			 }catch(IOException e){
+				 e.printStackTrace();
 			 }
-		  }
+				cassandraModel.addColumn(cassandraColumn);
+			}
 		}
+	}
+
+	/**
+	 * Depending on the value of the type the method:
+	 * 1) deserialize the value and assign it to the new cassandra column
+	 * 2) update the cassandra type to a CQL supported type
+	 * 
+	 * @param cassandraColumn
+	 * @param columnValue the value of the columns in the metamodel
+	 * @param javaType 
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 */
+	private void setValueAndSimpleType(CassandraColumn cassandraColumn,
+			byte[] columnValue, String javaType) throws IOException,ClassNotFoundException {
+		switch(javaType){
+			case "String":
+				cassandraColumn.setColumnValue((String) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("varchar");
+				return;
+			case "Long":
+				cassandraColumn.setColumnValue((Long) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("bigint");
+				return;
+			case "byte[]":
+				//leave the value serialized
+				//TODO
+				return;
+			case "Boolean":
+				cassandraColumn.setColumnValue((Boolean) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("boolean");
+				return;	
+			case "BigDecimal":
+				cassandraColumn.setColumnValue((BigDecimal) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("decimal");
+				return;
+			case "Double":
+				cassandraColumn.setColumnValue((double) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("double");
+				return;
+			case "Float":
+				cassandraColumn.setColumnValue((float) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("float");
+				return;
+			case "InetAddress":
+				cassandraColumn.setColumnValue((InetAddress) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("inet");
+				return;
+			case "Integer":
+				cassandraColumn.setColumnValue((int) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("int");
+				return;
+			case "Date":
+				//CHECK!!!!!!!!!!!!!!!!!
+				cassandraColumn.setColumnValue((Date) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("timestamp");
+				return;
+			case "UUID":
+				cassandraColumn.setColumnValue((UUID) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("uuid");
+				return;
+			case "BigInteger":
+				cassandraColumn.setColumnValue((BigInteger) DefaultSerializer.deserialize(columnValue));
+				cassandraColumn.setValueType("varint");
+				return;
+			default: 
+				throw  new ClassNotFoundException();
+		}
+		
 	}
 
 	/**
@@ -257,6 +315,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			if(collectionType=="Map"||collectionType=="List" || collectionType=="Set"){
 				return true;
 			}else
+				//if the string contains "<,>" but is not of one of the supported types then it can not be recognized
 				throw new ClassNotFoundException();
 		}
 		return false;
