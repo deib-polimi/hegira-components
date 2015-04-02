@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.event.EventUtils;
@@ -221,8 +223,8 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 						String type2=getSecondSimpleType(javaType);
 						checkIfSupported(type1);
 						checkIfSupported(type2);
-							//Deserializza e aggiorna tipo
-							//TODO
+					    deserializeCollection(cassandraColumn,column.getColumnValue(),javaType);
+					    translateCollectionType(cassandraColumn, javaType);
 				}
 			 }catch(ClassNotFoundException e){
 				  //crea classe per il tipo non supportato e lascia serializzato il valore
@@ -286,6 +288,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				return;
 			case "Date":
 				//CHECK!!!!!!!!!!!!!!!!!
+				//TODO
 				cassandraColumn.setColumnValue((Date) DefaultSerializer.deserialize(columnValue));
 				cassandraColumn.setValueType("timestamp");
 				return;
@@ -311,7 +314,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	private boolean isSupportedCollection(String type) throws ClassNotFoundException{
 		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
 		if(type.contains("<") && type.contains(">")){
-			String collectionType=type.substring(0, type.indexOf("<"));
+			String collectionType=getCollectionType(type);
 			if(collectionType=="Map"||collectionType=="List" || collectionType=="Set"){
 				return true;
 			}else
@@ -320,6 +323,11 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		}
 		return false;
 	}
+	
+	private String getCollectionType(String javaType){
+		return javaType.substring(0, javaType.indexOf("<"));
+	}
+	
 	/**
 	 * Returns the first type contained as a sub type of the collection
 	 *@param completeType
@@ -368,6 +376,82 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			throw new ClassNotFoundException();
 		}
 	}
-	
+
+	/**
+	 * Translate the java type of the collection in a String representing the CQL type
+	 * @param cassandraColumn
+	 * @param javaType
+	 * @throws ClassNotFoundException
+	 */
+	private void translateCollectionType (CassandraColumn cassandraColumn,
+			String javaType) throws ClassNotFoundException {
+		String collectionType=getCollectionType(javaType);
+		String firstSimpleType=translateSimpleType(getFirstSimpleType(javaType));
+		String secondSimpleType=translateSimpleType(getSecondSimpleType(javaType));
+		String cqlType=collectionType+"<"+firstSimpleType+","+secondSimpleType+">";
+		cassandraColumn.setValueType(cqlType);
+	}
+
+	private String translateSimpleType(String type) throws ClassNotFoundException{
+		switch(type){
+		case "String":
+			return "varchar";
+		case "Long":
+			return "bigint";
+		case "byte[]":
+			//leave the value serialized
+			//TODO
+			return null;
+		case "Boolean":
+			return "boolean";
+		case "BigDecimal":
+			return "decimal";
+		case "Double":
+			return "double";
+		case "Float":
+			return "float";
+		case "InetAddress":
+			return "inet";
+		case "Integer":
+			return "int";
+		case "Date":
+			//CHECK!!!!!!!!!!!!!!!!!
+			//TODO
+			return "timestamp";
+		case "UUID":
+			return "uuid";
+		case "BigInteger":
+			return "varint";
+		default: 
+			throw  new ClassNotFoundException();
+	}
+	}
+
+	/**
+	 * Deserialize the collection type
+	 * @param cassandraColumn
+	 * @param columnValue
+	 * @param javaType
+	 * @throws IOException
+	 */
+	private void deserializeCollection(CassandraColumn cassandraColumn,
+			byte[] columnValue, String javaType) throws IOException,ClassNotFoundException{
+		String collectionType=getCollectionType(javaType);
+		if(collectionType=="Map"){
+			Map<?,?> map=(Map<?, ?>) DefaultSerializer.deserialize(columnValue);
+			cassandraColumn.setColumnValue(map);
+		}else{
+			if(collectionType=="List"){
+				List<?> list=(List<?>) DefaultSerializer.deserialize(columnValue);
+				cassandraColumn.setColumnValue(list);
+			}else{
+				if(collectionType=="Set"){
+					Set<?> set=(Set<?>) DefaultSerializer.deserialize(columnValue);
+					cassandraColumn.setColumnValue(set);
+				}
+			}
+		}
+		
+	}
 		
 }
