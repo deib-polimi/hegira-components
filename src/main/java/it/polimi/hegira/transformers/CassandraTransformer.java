@@ -227,8 +227,10 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 					    translateCollectionType(cassandraColumn, javaType);
 				}
 			 }catch(ClassNotFoundException e){
-				 //TODO
-				 //check byte/byteBUffer per mantenere il valore serializzato e poterlo inserie via CQL
+				 //leave the value serialized and wrap it in a ByteBuffer
+				 cassandraColumn.setColumnValue(ByteBuffer.wrap(column.getColumnValue()));
+				 cassandraColumn.setValueType("blob");
+				 //create and add to the row a column containing the type NOT supported
 				 cassandraModel.addColumn(createTypeColumn(column)); 
 			 }catch(IOException e){
 				 e.printStackTrace();
@@ -262,8 +264,8 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				cassandraColumn.setValueType("bigint");
 				return;
 			case "byte[]":
-				//leave the value serialized
-				//TODO
+				cassandraColumn.setColumnValue(ByteBuffer.wrap(columnValue));
+				cassandraColumn.setValueType("blob");
 				return;
 			case "Boolean":
 				cassandraColumn.setColumnValue((Boolean) DefaultSerializer.deserialize(columnValue));
@@ -290,8 +292,6 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				cassandraColumn.setValueType("int");
 				return;
 			case "Date":
-				//CHECK!!!!!!!!!!!!!!!!!
-				//TODO
 				cassandraColumn.setColumnValue((Date) DefaultSerializer.deserialize(columnValue));
 				cassandraColumn.setValueType("timestamp");
 				return;
@@ -402,9 +402,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		case "Long":
 			return "bigint";
 		case "byte[]":
-			//leave the value serialized
-			//TODO
-			return null;
+			return "blob";
 		case "Boolean":
 			return "boolean";
 		case "BigDecimal":
@@ -418,8 +416,6 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		case "Integer":
 			return "int";
 		case "Date":
-			//CHECK!!!!!!!!!!!!!!!!!
-			//TODO
 			return "timestamp";
 		case "UUID":
 			return "uuid";
@@ -456,9 +452,14 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		}
 	}
 	
+	/**
+	 * Returns a new cassandra column containing the info about a not supported type
+	 * format of the name: typeNotSupp_Type
+	 * @param column
+	 * @return CassandraColumn
+	 */
 	private CassandraColumn createTypeColumn(Column column) {
-		// TODO Auto-generated method stub
-		return null;
+		return new CassandraColumn(column.getColumnName()+"_Type", column.getColumnValueType(), "varchar", false);
 	}
-		
+	
 }
