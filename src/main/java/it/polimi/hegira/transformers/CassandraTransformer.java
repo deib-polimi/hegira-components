@@ -227,7 +227,9 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 					    translateCollectionType(cassandraColumn, javaType);
 				}
 			 }catch(ClassNotFoundException e){
-				  //crea classe per il tipo non supportato e lascia serializzato il valore
+				 //TODO
+				 //check byte/byteBUffer per mantenere il valore serializzato e poterlo inserie via CQL
+				 cassandraModel.addColumn(createTypeColumn(column)); 
 			 }catch(IOException e){
 				 e.printStackTrace();
 			 }
@@ -235,6 +237,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			}
 		}
 	}
+
 
 	/**
 	 * Depending on the value of the type the method:
@@ -451,7 +454,11 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				}
 			}
 		}
-		
+	}
+	
+	private CassandraColumn createTypeColumn(Column column) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 		
 }
