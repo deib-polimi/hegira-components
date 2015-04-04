@@ -208,6 +208,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			String columnFamily=columnFamilyIterator.next();
 			//get the properties contained in the actual column family
 			List<Column> columnsMeta=model.getColumns().get(columnFamily);
+			if(columnsMeta!=null){
 			for(Column column:columnsMeta){
 				CassandraColumn cassandraColumn=new CassandraColumn();
 				
@@ -237,6 +238,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 			 }
 				cassandraModel.addColumn(cassandraColumn);
 			}
+		}
 		}
 	}
 
