@@ -80,7 +80,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @throws IllegalArgumentException  when the parameter is not a supported level of consistency
 	 */
 	public void setConsistency(String consistency) throws IllegalArgumentException{
-		  if(consistency==Constants.EVENTUAL || consistency==Constants.STRONG){
+		  if(consistency.equals(Constants.EVENTUAL) || consistency.equals(Constants.STRONG)){
 				this.consistency=consistency;
 		  }else
 				throw new IllegalArgumentException("consistency level not supported");
@@ -110,10 +110,10 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @param model
 	 */
 	private void mapPartitionGroup(Metamodel metamodel, CassandraModel model) {
-		if (consistency==Constants.EVENTUAL){
+		if (consistency.equals(Constants.EVENTUAL)){
 			metamodel.setPartitionGroup("@"+model.getTable()+"#"+model.getKeyValue());
 		}else
-			if(consistency==Constants.STRONG)
+			if(consistency.equals(Constants.STRONG))
 				metamodel.setPartitionGroup("@strong#strong");
 	}
 
@@ -220,10 +220,16 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 					if(!isSupportedCollection(javaType)){
 							setValueAndSimpleType(cassandraColumn,column.getColumnValue(),javaType);
 					}else{
-						String type1=getFirstSimpleType(javaType);
-						String type2=getSecondSimpleType(javaType);
-						checkIfSupported(type1);
-						checkIfSupported(type2);
+						String collectioType=getCollectionType(javaType);
+						if(collectioType.equals("Map")){
+							String type1=getFirstSimpleType(javaType);
+							String type2=getSecondSimpleType(javaType);
+							checkIfSupported(type1);
+							checkIfSupported(type2);
+						}else{
+							String subType=javaType.substring(javaType.indexOf("<")+1,javaType.indexOf(">"));
+							checkIfSupported(subType);
+						}
 					    deserializeCollection(cassandraColumn,column.getColumnValue(),javaType);
 					    translateCollectionType(cassandraColumn, javaType);
 				}
@@ -334,25 +340,25 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	}
 	
 	/**
-	 * Returns the first type contained as a sub type of the collection
+	 * Returns the first type contained as a sub type of the MAP
 	 *@param completeType
 	 *@return String the first subtype of the collection
 	 * @throws ClassNotFoundException
 	 */
 	private String getFirstSimpleType(String completeType) throws ClassNotFoundException{
-		if(completeType.contains("<") && completeType.contains(">") && completeType.contains(",")){
+		if(completeType.contains("<") && completeType.contains(">")){
 			return completeType.substring(completeType.indexOf("<")+1,completeType.indexOf(","));
 		}else
 		throw new ClassNotFoundException();
 	}
 	/**
-	 * Returns the second type contained as a sub type of the collection
+	 * Returns the second type contained as a sub type of the MAP
 	 *@param completeType
 	 *@return the second subtype of the collection
 	 * @throws ClassNotFoundException
 	 */
 	private String getSecondSimpleType(String completeType) throws ClassNotFoundException{
-		if(completeType.contains("<") && completeType.contains(">") && completeType.contains(",")){
+		if(completeType.contains("<") && completeType.contains(">") ){
 			return completeType.substring(completeType.indexOf(",")+1,completeType.indexOf(">"));
 		}else
 		throw new ClassNotFoundException();
@@ -366,18 +372,19 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 *@throws ClassNotFoundException 
 	 */
 	private void checkIfSupported(String type) throws ClassNotFoundException{
-		if(!(type=="String" ||
-			type=="Long" ||
-			type=="byte[]" ||
-			type=="Boolean" ||
-			type=="BigDecimal" ||
-			type=="Double" ||
-			type=="Float" ||
-			type=="InetAddress" ||
-			type=="Integer" ||
-			type=="Date" ||
-			type=="UUID" ||
-			type=="BigInteger")){
+		if(!(
+			type.equals("String")||	
+			type.equals("Long")||	
+			type.equals("byte[]")||	
+			type.equals("Boolean")||	
+			type.equals("BigDecimal")||	
+			type.equals("Double")||	
+			type.equals("Float")||		
+		    type.equals("InetAddress")||
+			type.equals("Integer")||
+			type.equals("Date")||
+			type.equals("UUID") ||
+			type.equals("BigInteger"))){
 			throw new ClassNotFoundException();
 		}
 	}
@@ -391,9 +398,15 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	private void translateCollectionType (CassandraColumn cassandraColumn,
 			String javaType) throws ClassNotFoundException {
 		String collectionType=getCollectionType(javaType);
-		String firstSimpleType=translateSimpleType(getFirstSimpleType(javaType));
-		String secondSimpleType=translateSimpleType(getSecondSimpleType(javaType));
-		String cqlType=collectionType+"<"+firstSimpleType+","+secondSimpleType+">";
+		String cqlType=new String();
+		if(collectionType.equals("Map")){
+			String firstSimpleType=translateSimpleType(getFirstSimpleType(javaType));
+			String secondSimpleType=translateSimpleType(getSecondSimpleType(javaType));
+			cqlType=collectionType+"<"+firstSimpleType+","+secondSimpleType+">";
+		}else{
+			String simpleType=translateSimpleType(javaType.substring(javaType.indexOf("<")+1, javaType.indexOf(">")));
+			cqlType=collectionType+"<"+simpleType+">";
+		}
 		cassandraColumn.setValueType(cqlType);
 	}
 
@@ -438,15 +451,15 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	private void deserializeCollection(CassandraColumn cassandraColumn,
 			byte[] columnValue, String javaType) throws IOException,ClassNotFoundException{
 		String collectionType=getCollectionType(javaType);
-		if(collectionType=="Map"){
+		if(collectionType.equals("Map")){
 			Map<?,?> map=(Map<?, ?>) DefaultSerializer.deserialize(columnValue);
 			cassandraColumn.setColumnValue(map);
 		}else{
-			if(collectionType=="List"){
+			if(collectionType.equals("List")){
 				List<?> list=(List<?>) DefaultSerializer.deserialize(columnValue);
 				cassandraColumn.setColumnValue(list);
 			}else{
-				if(collectionType=="Set"){
+				if(collectionType.equals("Set")){
 					Set<?> set=(Set<?>) DefaultSerializer.deserialize(columnValue);
 					cassandraColumn.setColumnValue(set);
 				}
