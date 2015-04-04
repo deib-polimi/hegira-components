@@ -218,7 +218,8 @@ public class CassandraTransformerTest {
 		
 		assertEquals(cm.getTable(),"firstFamily");
 		assertEquals(cm.getKeyValue(),"11");
-		assertEquals(cm.getColumns().size(),3);
+		List<CassandraColumn> cassCols=cm.getColumns();
+		assertEquals(cassCols.size(),3);
 		
 		CassandraColumn cassCol1=cm.getColumns().get(0);
 		assertEquals(cassCol1.getColumnName(),"colSet");

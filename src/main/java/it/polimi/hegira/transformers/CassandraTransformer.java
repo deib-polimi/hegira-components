@@ -320,7 +320,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
 		if(type.contains("<") && type.contains(">")){
 			String collectionType=getCollectionType(type);
-			if(collectionType=="Map"||collectionType=="List" || collectionType=="Set"){
+			if(collectionType.equals("Map")||collectionType.equals("List") || collectionType.equals("Set")){
 				return true;
 			}else
 				//if the string contains "<,>" but is not of one of the supported types then it can not be recognized
