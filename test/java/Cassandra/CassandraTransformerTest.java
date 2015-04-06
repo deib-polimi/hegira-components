@@ -208,8 +208,8 @@ public class CassandraTransformerTest {
 		cols.add(colList);
 		cols.add(colMap);
 		Map<String,List<Column>> mapCols=new HashMap<String,List<Column>>();
-		map.put("firstFamily", cols);
-		meta.setColumns(map);
+		mapCols.put("firstFamily", cols);
+		meta.setColumns(mapCols);
 		}catch(IOException e){
 			e.printStackTrace();
 		}
@@ -239,7 +239,54 @@ public class CassandraTransformerTest {
 		assertEquals(cassCol3.getValueType(),"Map<varchar,int>");
 		assertEquals(cassCol3.isIndexed(),true);
 		
-		
 	}
 	
+	/**
+	 * Test the behaviour of the system with a collection type that contains a not supported simple type
+	 */
+	@Test 
+	public void testCollectionWithNoSupportedSimpleType(){
+        CassandraTransformer ct=new CassandraTransformer();
+		
+		Metamodel meta=new Metamodel();
+		meta.setRowKey("1");
+		meta.setPartitionGroup("partition");
+		meta.addToColumnFamilies("firstFamily");
+		List<Column> cols=new ArrayList<Column>();
+		try{
+			Column col=new Column("col", ByteBuffer.wrap(DefaultSerializer.serialize("Random")), "Map<String,NotSupported>", true);
+			Column col2=new Column("col2",ByteBuffer.wrap(DefaultSerializer.serialize("Random again")),"Map<NotSupported,String>",false);
+			Column col3=new Column("col3",ByteBuffer.wrap(DefaultSerializer.serialize("Random again2")),"List<NotSupported>",false);
+			Column col4=new Column("col4",ByteBuffer.wrap(DefaultSerializer.serialize("Random again3")),"Set<NotSupported>",false);
+			cols.add(col);
+			cols.add(col2);
+			cols.add(col3);
+			cols.add(col4);
+			Map<String,List<Column>> mapCols=new HashMap<String,List<Column>>();
+			mapCols.put("firstFamily", cols);
+			meta.setColumns(mapCols);
+			}catch(IOException e){
+			e.printStackTrace();
+		}
+		CassandraModel cm=ct.fromMyModel(meta);
+		assertEquals(cm.getTable(),"firstFamily");
+		assertEquals(cm.getKeyValue(),"1");
+		List<CassandraColumn> cassCols=cm.getColumns();
+		assertEquals(cassCols.size(),8);
+	
+	for(int i=0;i<cassCols.size();i++){
+		//type columns
+		if((i % 2) ==0){
+			assertEquals(cols.get(i/2).getColumnName()+"_Type",cassCols.get(i).getColumnName());
+			assertEquals(cols.get(i/2).getColumnValueType(),cassCols.get(i).getColumnValue());
+			assertEquals(cassCols.get(i).getValueType(),"varchar");
+		}else{
+			int index=(i-1)/2;
+			assertEquals(cols.get(index).getColumnName(),cassCols.get(i).getColumnName());
+			assertEquals(ByteBuffer.wrap(cols.get(index).getColumnValue()),cassCols.get(i).getColumnValue());
+			assertEquals(cassCols.get(i).getValueType(),"blob");
+			assertEquals(cols.get(index).isIndexable(),cassCols.get(i).isIndexed());
+		}
+	}
+  }
 }
