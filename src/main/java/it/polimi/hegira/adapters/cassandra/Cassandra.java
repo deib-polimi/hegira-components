@@ -78,6 +78,7 @@ public class Cassandra extends AbstractDatabase {
 				ConnectionObject conObj= new ConnectionObject(session);
 				//I use set in order to keep things in order with the empty connectioObjects
 				connectionList.set(thread_id, conObj);
+				
 				log.debug(Thread.currentThread().getName()+" - Added connection object at "+
 					"position: "+connectionList.indexOf(conObj)+
 					" ThreadId%THREAD_NO="+thread_id);
@@ -88,9 +89,8 @@ public class Cassandra extends AbstractDatabase {
 	}else{
 		log.warn(DefaultErrors.alreadyConnected);
 		throw new ConnectException(DefaultErrors.alreadyConnected);
+	}	
 	}
-		
-}
 	
 	/**
 	 * Checks if a connection has already been established for the current 
@@ -108,6 +108,19 @@ public class Cassandra extends AbstractDatabase {
 		}
 	}
 	
+	@Override
+	public void disconnect() {
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(isConnected()){
+			connectionList.get(thread_id).session.close();
+			connectionList.get(thread_id).session = null;
+			log.debug(Thread.currentThread().getName() + " Disconnected");
+		}else
+			log.warn(DefaultErrors.notConnected);	
+	}
+
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
 		// TODO Auto-generated method stub
@@ -127,11 +140,7 @@ public class Cassandra extends AbstractDatabase {
 	}
 
 
-	@Override
-	public void disconnect() {
-		// TODO Auto-generated method stub
-		
-	}
+
 
 	@Override
 	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
