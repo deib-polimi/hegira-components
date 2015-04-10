@@ -16,6 +16,7 @@ import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.exceptions.AuthenticationException;
@@ -129,13 +130,25 @@ public class Cassandra extends AbstractDatabase {
 		if(THREADS_NO!=0)
 			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
 		
+		Session session=connectionList.get(thread_id).session;
+		
 		// get the list of all tables contained in the keyspace
-		Cluster cluster=connectionList.get(thread_id).session.getCluster();
+		Cluster cluster=session.getCluster();
 		List<TableMetadata> tables=(ArrayList<TableMetadata>) cluster
 				.getMetadata()
 				.getKeyspace(Constants.CASSANDRA_KEYSPACE)
 				.getTables();
 		
+		for(TableMetadata table:tables){
+			//get the name of the table
+			String tableName=table.getName();
+			
+			//QUERY all the rows in the actual table
+			ResultSet queryResults=session.execute("SELECT * FROM "+tableName);
+			
+			//do the transformation to the metamodel for each row
+			
+		}
 		
 		return null;
 	}
