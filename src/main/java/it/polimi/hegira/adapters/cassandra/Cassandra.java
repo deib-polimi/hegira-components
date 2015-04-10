@@ -17,6 +17,7 @@ import it.polimi.hegira.utils.PropertiesManager;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.exceptions.AuthenticationException;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 /**
@@ -121,6 +122,24 @@ public class Cassandra extends AbstractDatabase {
 			log.warn(DefaultErrors.notConnected);	
 	}
 
+	
+	@Override
+	protected Metamodel toMyModel(AbstractDatabase model) {
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		
+		// get the list of all tables contained in the keyspace
+		Cluster cluster=connectionList.get(thread_id).session.getCluster();
+		List<TableMetadata> tables=(ArrayList<TableMetadata>) cluster
+				.getMetadata()
+				.getKeyspace(Constants.CASSANDRA_KEYSPACE)
+				.getTables();
+		
+		
+		return null;
+	}
+	
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
 		// TODO Auto-generated method stub
@@ -132,15 +151,6 @@ public class Cassandra extends AbstractDatabase {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
-	@Override
-	protected Metamodel toMyModel(AbstractDatabase model) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-
 
 	@Override
 	protected Metamodel toMyModelPartitioned(AbstractDatabase model) {
