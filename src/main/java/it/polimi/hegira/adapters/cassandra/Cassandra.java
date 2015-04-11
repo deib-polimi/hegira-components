@@ -7,15 +7,18 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
 import it.polimi.hegira.adapters.AbstractDatabase;
 import it.polimi.hegira.adapters.datastore.Datastore;
 import it.polimi.hegira.exceptions.ConnectException;
+import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.models.Metamodel;
+import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.transformers.CassandraTransformer;
 import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
@@ -206,16 +209,24 @@ public class Cassandra extends AbstractDatabase {
 							}
 							//add to the cassandra model
 							cassModel.addColumn(cassColumn);
+							
 						}catch(ClassNotFoundException ex){
 							log.error(Thread.currentThread().getName() + " - Error managing column: "+column.getName()
 									+" for row: "+key
 									+" on cassandra table: "+tableName, ex);
 						}
-					
-					/*
-					 * TODO: from cassandra model to metamodel + serialize + aggiungi alla pila
-					 */	
 				}
+					//from cassandraModel to MetaModel
+					Metamodel meta=cassandraTransformer.toMyModel(cassModel);
+					try{
+						//serialize & add to the queue
+						taskQueues.get(thread_id).publish(serializer.serialize(meta));
+					}catch (QueueException e) {
+						log.error(Thread.currentThread().getName() + " - Error communicating with the queue " + 
+								TaskQueue.getDefaultTaskQueueName(), e);
+					} catch (TException e) {
+						log.error(Thread.currentThread().getName() + " - Error serializing message ", e);
+					}
 			  }
 			}catch(NoHostAvailableException | 
 					QueryExecutionException |
