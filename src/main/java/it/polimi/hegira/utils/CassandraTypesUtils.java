@@ -53,7 +53,12 @@ public class CassandraTypesUtils {
 		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
 		if(isCollection(type)){
 			String collectionType=CassandraTypesUtils.getCollectionType(type);
-			if(collectionType.equals("Map")||collectionType.equals("List") || collectionType.equals("Set")){
+			if(collectionType.equals("Map") || 
+					collectionType.equals("map") ||
+					collectionType.equals("List") || 
+					collectionType.equals("list") ||
+					collectionType.equals("Set") ||
+					collectionType.equals("set")){
 				return true;
 			}else
 				//if the string contains "<,>" but is not of one of the supported types then it can not be recognized
@@ -152,5 +157,58 @@ public class CassandraTypesUtils {
 		default: 
 			throw  new ClassNotFoundException();
 	}
+	}
+	
+	/**
+	 * CQL simple data type--->java type
+	 * @param CQLSimpleType
+	 * @return string containing the simple java type 
+	 * @throws ClassNotFoundException
+	 */
+	public static String getJavaSimpleType(String CQLSimpleType) throws ClassNotFoundException{
+		switch(CQLSimpleType){
+		case "ascii": 
+			return "String";
+		case "bigint":
+			return "Long";
+		case "blob":
+			//TODO: check
+			return "byte[]";
+		case "boolean":
+			return "Boolean";
+		case "counter":
+			return "Long";
+		case "decimal":
+			return "BigDecimal";
+		case "double":
+			return "Double";
+		case "float":
+			return "Float";
+		case "inet":
+			return "InetAddress";
+		case "int":
+			return "Integer";
+		case "text":
+			return "String";
+		case "timestamp":
+			return "Date";
+		case "uuid":
+			return "UUID";
+		case "varchar":
+			return "String";
+		case "varint":
+			return "BigInteger";
+		case "timeuuid":
+			return "UUID";
+		case "udt":
+			return "UDTValue";
+		case "tuple":
+			return "TupleValue";
+		case "custom":
+			//TODO: check
+			return "ByteBuffer";
+		default: 
+			throw  new ClassNotFoundException();
+		}
 	}
 }

@@ -344,9 +344,52 @@ public class Cassandra extends AbstractDatabase {
 		
 	}
 	
+	/**
+	 * Manage the conversion of a CQL collection type to java type
+     * 1) simple CQL type --> java type & set the type in cassandra model column
+	 * 2) retrieve the value on the base of the java type
+	 * 
+	 * @param cassandraColumn
+	 * @param columnName
+	 * @param dataType - collection type in the form X<Y, Z> or X<Y>
+	 * @param row
+	 * @throws ClassNotFoundException
+	 */
 	private void setValueAndCollectionType(CassandraColumn cassandraColumn,
-			String columnName,String dataType, Row row) {
-		// TODO Auto-generated method stub
+			String columnName,String dataType, Row row) throws ClassNotFoundException{
+		
+		//check if the collection is one of the supported types
+		CassandraTypesUtils.isSupportedCollection(dataType);
+		
+		String collectionType=CassandraTypesUtils.getCollectionType(dataType);
+		
+		if(collectionType=="map"){
+			String CQLSubType1=CassandraTypesUtils.getFirstSimpleType(dataType);
+			//retrieve the second subtype removing spaces in the string
+			String CQLSubType2=CassandraTypesUtils.getSecondSimpleType(dataType).replaceAll("\\s","");
+			//Set the column type
+			cassandraColumn.setValueType("Map<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType1)+","+
+					CassandraTypesUtils.getJavaSimpleType(CQLSubType2)+">");
+			//set the column value
+			cassandraColumn.setColumnValue(row.getMap(columnName, Object.class, Object.class));
+		}else{
+			//the collection has only one subtype
+			//retrieve the subtype
+			String CQLSubType=dataType.substring(dataType.indexOf("<")+1,dataType.indexOf(">"));
+			if(collectionType=="set"){
+				//set type
+				cassandraColumn.setValueType("set<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
+				//set the value
+				cassandraColumn.setColumnValue(row.getSet(columnName, Object.class));
+			}else{
+				if(collectionType=="list"){
+					//set type
+					cassandraColumn.setValueType("list<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
+					//set the value
+					cassandraColumn.setColumnValue(row.getList(columnName, Object.class));
+				}
+			}
+		}
 		
 	}
 
