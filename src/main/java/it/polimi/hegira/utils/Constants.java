@@ -89,13 +89,17 @@ public class Constants {
 	/**
 	 * TYPES OF CONSISTENCY	
 	 */
-	public static final String EVENTUAL="eventual";
-	public static final String STRONG="strong";
+	public static final String EVENTUAL_CONSISTENCY="eventual";
+	public static final String STRONG_CONSISTENCY="strong";
 	
 	/**
 	 * DEFAULT TABLE NAME
 	 * (used during the migration of data to Cassandra when the metamodel does NOT specify any column family)
 	 */
 	public static final String DEFAULT_TABLE_CASSANDRA="defaultTableCassandra";
+	/**
+	 * DEFAULT PRIMARY KEY COLUMN NAME
+	 */
+	public static final String DEFAULT_PRIMARY_KEY_NAME="id";
 
 }

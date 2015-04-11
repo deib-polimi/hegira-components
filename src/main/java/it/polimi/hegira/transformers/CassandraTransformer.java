@@ -80,7 +80,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @throws IllegalArgumentException  when the parameter is not a supported level of consistency
 	 */
 	public void setConsistency(String consistency) throws IllegalArgumentException{
-		  if(consistency.equals(Constants.EVENTUAL) || consistency.equals(Constants.STRONG)){
+		  if(consistency.equals(Constants.EVENTUAL_CONSISTENCY) || consistency.equals(Constants.STRONG_CONSISTENCY)){
 				this.consistency=consistency;
 		  }else
 				throw new IllegalArgumentException("consistency level not supported");
@@ -110,10 +110,10 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @param model
 	 */
 	private void mapPartitionGroup(Metamodel metamodel, CassandraModel model) {
-		if (consistency.equals(Constants.EVENTUAL)){
+		if (consistency.equals(Constants.EVENTUAL_CONSISTENCY)){
 			metamodel.setPartitionGroup("@"+model.getTable()+"#"+model.getKeyValue());
 		}else
-			if(consistency.equals(Constants.STRONG))
+			if(consistency.equals(Constants.STRONG_CONSISTENCY))
 				metamodel.setPartitionGroup("@strong#strong");
 	}
 
