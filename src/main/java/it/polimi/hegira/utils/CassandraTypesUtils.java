@@ -51,7 +51,7 @@ public class CassandraTypesUtils {
 	 */
 	public static boolean isSupportedCollection(String type) throws ClassNotFoundException{
 		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
-		if(type.contains("<") && type.contains(">")){
+		if(isCollection(type)){
 			String collectionType=CassandraTypesUtils.getCollectionType(type);
 			if(collectionType.equals("Map")||collectionType.equals("List") || collectionType.equals("Set")){
 				return true;
@@ -60,6 +60,14 @@ public class CassandraTypesUtils {
 				throw new ClassNotFoundException();
 		}
 		return false;
+	}
+	
+	/**
+	 * @param type
+	 * @return true - if the type is a collection
+	 */
+	public static boolean isCollection(String type){
+		return type.contains("<") && type.contains(">");
 	}
 	
 	/**

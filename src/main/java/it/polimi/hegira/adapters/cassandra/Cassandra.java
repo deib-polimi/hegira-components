@@ -17,6 +17,7 @@ import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.transformers.CassandraTransformer;
+import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
@@ -193,22 +194,29 @@ public class Cassandra extends AbstractDatabase {
 						//set name
 						String columnName=column.getName();
 						cassColumn.setColumnName(columnName);
-						//set type + value 
-						setValueAndType(cassColumn,column);
-						//set indexed 
-						if(table.getColumn(columnName).getIndex()!=null){
-							cassColumn.setIndexed(true);
-						}else{
-							cassColumn.setIndexed(false);
+						try{
+							//set type + value 
+							String dataType=column.getType().toString();
+							setValueAndType(cassColumn,columnName,dataType,row);
+							//set indexed 
+							if(table.getColumn(columnName).getIndex()!=null){
+								cassColumn.setIndexed(true);
+							}else{
+								cassColumn.setIndexed(false);
+							}
+							//add to the cassandra model
+							cassModel.addColumn(cassColumn);
+						}catch(ClassNotFoundException ex){
+							log.error(Thread.currentThread().getName() + " - Error managing column: "+column.getName()
+									+" for row: "+key
+									+" on cassandra table: "+tableName, ex);
 						}
-						//add to the cassandra model
-						cassModel.addColumn(cassColumn);
-					}
 					
 					/*
 					 * TODO: from cassandra model to metamodel + serialize + aggiungi alla pila
 					 */	
 				}
+			  }
 			}catch(NoHostAvailableException | 
 					QueryExecutionException |
 					QueryValidationException | 
@@ -224,12 +232,121 @@ public class Cassandra extends AbstractDatabase {
 	/**
 	 * This method set the type of the cassandra column and, according to the specific type, it retrieve and sets the value
 	 * @param cassandraColumn
-	 * @param column
+	 * @param columnName
+	 * @param dataType -  CQL data type
+	 * @param row
 	 * @throws TypeNotPresentException
 	 */
-	private void setValueAndType(CassandraColumn cassandraColumn, Definition column) throws TypeNotPresentException{
-		String dataType=column.getType().toString();
+	private void setValueAndType(CassandraColumn cassandraColumn, String columnName,String dataType, Row row) throws ClassNotFoundException{
 		
+		if(!CassandraTypesUtils.isCollection(dataType)){
+			setValueAndSimpleType(cassandraColumn,  columnName, dataType, row);
+		}else{
+			setValueAndCollectionType(cassandraColumn, columnName, dataType, row);
+		}
+		
+	}
+
+	/**
+	 * 1) simple CQL type --> java type & set the type in cassandra model column
+	 * 2) retrieve the value on the base of the java type
+	 * @param cassandraColumn
+	 * @param columnName
+	 * @param dataType - string containing the CQL type
+	 * @param row
+	 * @throws ClassNotFoundException
+	 */
+	private void setValueAndSimpleType(CassandraColumn cassandraColumn,
+			String columnName, String dataType, Row row) throws ClassNotFoundException{
+		switch(dataType){
+		case "ascii": 
+			cassandraColumn.setValueType("String");
+			cassandraColumn.setColumnValue(row.getString(columnName));
+			return;
+		case "bigint":
+			cassandraColumn.setValueType("Long");
+			cassandraColumn.setColumnValue(row.getLong(columnName));
+			return;
+		case "blob":
+			cassandraColumn.setValueType("byte[]");
+			//TODO: check
+			cassandraColumn.setColumnValue(row.getBytes(columnName));
+			return;
+		case "boolean":
+			cassandraColumn.setValueType("Boolean");
+			cassandraColumn.setColumnValue(row.getBool(columnName));
+			return;
+		case "counter":
+			cassandraColumn.setValueType("Long");
+			cassandraColumn.setColumnValue(row.getLong(columnName));
+			return;
+		case "decimal":
+			cassandraColumn.setValueType("BigDecimal");
+			cassandraColumn.setColumnValue(row.getDecimal(columnName));
+			return;
+		case "double":
+			cassandraColumn.setValueType("Double");
+			cassandraColumn.setColumnValue(row.getDouble(columnName));
+			return;
+		case "float":
+			cassandraColumn.setValueType("Float");
+			cassandraColumn.setColumnValue(row.getFloat(columnName));
+			return;
+		case "inet":
+			cassandraColumn.setValueType("InetAddress");
+			cassandraColumn.setColumnValue(row.getInet(columnName));
+			return;
+		case "int":
+			cassandraColumn.setValueType("Integer");
+			cassandraColumn.setColumnValue(row.getInt(columnName));
+			return;
+		case "text":
+			cassandraColumn.setValueType("String");
+			cassandraColumn.setColumnValue(row.getString(columnName));
+			return;
+		case "timestamp":
+			cassandraColumn.setValueType("Date");
+			cassandraColumn.setColumnValue(row.getDate(columnName));
+			return;
+		case "uuid":
+			cassandraColumn.setValueType("UUID");
+			cassandraColumn.setColumnValue(row.getUUID(columnName));
+			return;
+		case "varchar":
+			cassandraColumn.setValueType("String");
+			cassandraColumn.setColumnValue(row.getString(columnName));
+			return;
+		case "varint":
+			cassandraColumn.setValueType("BigInteger");
+			cassandraColumn.setColumnValue(row.getVarint(columnName));
+			return;
+		case "timeuuid":
+			cassandraColumn.setValueType("UUID");
+			cassandraColumn.setColumnValue(row.getUUID(columnName));
+			return;
+		case "udt":
+			cassandraColumn.setValueType("UDTValue");
+			cassandraColumn.setColumnValue(row.getUDTValue(columnName));
+			return;
+		case "tuple":
+			cassandraColumn.setValueType("TupleValue");
+			cassandraColumn.setColumnValue(row.getTupleValue(columnName));
+			return;
+		case "custom":
+			//TODO: check
+			//TODO: check docs, I said custom types were not supported
+			cassandraColumn.setValueType("ByteBuffer");
+			cassandraColumn.setColumnValue(row.getBytes(columnName));
+			return;
+		default: 
+			throw  new ClassNotFoundException();
+		}
+		
+	}
+	
+	private void setValueAndCollectionType(CassandraColumn cassandraColumn,
+			String columnName,String dataType, Row row) {
+		// TODO Auto-generated method stub
 		
 	}
 
