@@ -221,8 +221,15 @@ public class Cassandra extends AbstractDatabase {
 		return null;
 	}
 	
-	private void setValueAndType(CassandraColumn cassColumn, Definition column) {
-		// TODO Auto-generated method stub
+	/**
+	 * This method set the type of the cassandra column and, according to the specific type, it retrieve and sets the value
+	 * @param cassandraColumn
+	 * @param column
+	 * @throws TypeNotPresentException
+	 */
+	private void setValueAndType(CassandraColumn cassandraColumn, Definition column) throws TypeNotPresentException{
+		String dataType=column.getType().toString();
+		
 		
 	}
 

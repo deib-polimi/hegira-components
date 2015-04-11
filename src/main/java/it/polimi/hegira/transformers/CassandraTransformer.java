@@ -19,6 +19,7 @@ import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.models.Column;
 import it.polimi.hegira.models.Metamodel;
+import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultSerializer;
 
@@ -217,21 +218,21 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 				
 				String javaType=column.getColumnValueType();
 				try{
-					if(!isSupportedCollection(javaType)){
+					if(!CassandraTypesUtils.isSupportedCollection(javaType)){
 							setValueAndSimpleType(cassandraColumn,column.getColumnValue(),javaType);
 					}else{
-						String collectioType=getCollectionType(javaType);
+						String collectioType=CassandraTypesUtils.getCollectionType(javaType);
 						if(collectioType.equals("Map")){
-							String type1=getFirstSimpleType(javaType);
-							String type2=getSecondSimpleType(javaType);
-							checkIfSupported(type1);
-							checkIfSupported(type2);
+							String type1=CassandraTypesUtils.getFirstSimpleType(javaType);
+							String type2=CassandraTypesUtils.getSecondSimpleType(javaType);
+							CassandraTypesUtils.checkIfSupported(type1);
+							CassandraTypesUtils.checkIfSupported(type2);
 						}else{
 							String subType=javaType.substring(javaType.indexOf("<")+1,javaType.indexOf(">"));
-							checkIfSupported(subType);
+							CassandraTypesUtils.checkIfSupported(subType);
 						}
 					    deserializeCollection(cassandraColumn,column.getColumnValue(),javaType);
-					    translateCollectionType(cassandraColumn, javaType);
+					    CassandraTypesUtils.translateCollectionType(cassandraColumn, javaType);
 				}
 			 }catch(ClassNotFoundException e){
 				 //leave the value serialized and wrap it in a ByteBuffer
@@ -318,130 +319,6 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	}
 
 	/**
-	 * @param type
-	 * @return true if the type is one of the collections supported by Cassandra (map,list,set)
-	 * @throws ClassNotFoundException
-	 */
-	private boolean isSupportedCollection(String type) throws ClassNotFoundException{
-		//I suppose the supported types are in the form Map<T,K>,List<T>,Set<T>
-		if(type.contains("<") && type.contains(">")){
-			String collectionType=getCollectionType(type);
-			if(collectionType.equals("Map")||collectionType.equals("List") || collectionType.equals("Set")){
-				return true;
-			}else
-				//if the string contains "<,>" but is not of one of the supported types then it can not be recognized
-				throw new ClassNotFoundException();
-		}
-		return false;
-	}
-	
-	private String getCollectionType(String javaType){
-		return javaType.substring(0, javaType.indexOf("<"));
-	}
-	
-	/**
-	 * Returns the first type contained as a sub type of the MAP
-	 *@param completeType
-	 *@return String the first subtype of the collection
-	 * @throws ClassNotFoundException
-	 */
-	private String getFirstSimpleType(String completeType) throws ClassNotFoundException{
-		if(completeType.contains("<") && completeType.contains(">")){
-			return completeType.substring(completeType.indexOf("<")+1,completeType.indexOf(","));
-		}else
-		throw new ClassNotFoundException();
-	}
-	/**
-	 * Returns the second type contained as a sub type of the MAP
-	 *@param completeType
-	 *@return the second subtype of the collection
-	 * @throws ClassNotFoundException
-	 */
-	private String getSecondSimpleType(String completeType) throws ClassNotFoundException{
-		if(completeType.contains("<") && completeType.contains(">") ){
-			return completeType.substring(completeType.indexOf(",")+1,completeType.indexOf(">"));
-		}else
-		throw new ClassNotFoundException();
-	}
-	/**
-	 * Check if the simple type is supported by cassandra (simple means "not a collection").
-	 * If the type is supported the method does not perform any action.
-	 * If the type is NOT supported the method throws an exception in order to handle the problem at
-     * a higher level
-	 *@param type
-	 *@throws ClassNotFoundException 
-	 */
-	private void checkIfSupported(String type) throws ClassNotFoundException{
-		if(!(
-			type.equals("String")||	
-			type.equals("Long")||	
-			type.equals("byte[]")||	
-			type.equals("Boolean")||	
-			type.equals("BigDecimal")||	
-			type.equals("Double")||	
-			type.equals("Float")||		
-		    type.equals("InetAddress")||
-			type.equals("Integer")||
-			type.equals("Date")||
-			type.equals("UUID") ||
-			type.equals("BigInteger"))){
-			throw new ClassNotFoundException();
-		}
-	}
-
-	/**
-	 * Translate the java type of the collection in a String representing the CQL type
-	 * @param cassandraColumn
-	 * @param javaType
-	 * @throws ClassNotFoundException
-	 */
-	private void translateCollectionType (CassandraColumn cassandraColumn,
-			String javaType) throws ClassNotFoundException {
-		String collectionType=getCollectionType(javaType);
-		String cqlType=new String();
-		if(collectionType.equals("Map")){
-			String firstSimpleType=translateSimpleType(getFirstSimpleType(javaType));
-			String secondSimpleType=translateSimpleType(getSecondSimpleType(javaType));
-			cqlType=collectionType+"<"+firstSimpleType+","+secondSimpleType+">";
-		}else{
-			String simpleType=translateSimpleType(javaType.substring(javaType.indexOf("<")+1, javaType.indexOf(">")));
-			cqlType=collectionType+"<"+simpleType+">";
-		}
-		cassandraColumn.setValueType(cqlType);
-	}
-
-	private String translateSimpleType(String type) throws ClassNotFoundException{
-		switch(type){
-		case "String":
-			return "varchar";
-		case "Long":
-			return "bigint";
-		case "byte[]":
-			return "blob";
-		case "Boolean":
-			return "boolean";
-		case "BigDecimal":
-			return "decimal";
-		case "Double":
-			return "double";
-		case "Float":
-			return "float";
-		case "InetAddress":
-			return "inet";
-		case "Integer":
-			return "int";
-		case "Date":
-			return "timestamp";
-		case "UUID":
-			return "uuid";
-		case "BigInteger":
-			return "varint";
-		default: 
-			throw  new ClassNotFoundException();
-	}
-	}
-
-	/**
 	 * Deserialize the collection type
 	 * @param cassandraColumn
 	 * @param columnValue
@@ -450,7 +327,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 */
 	private void deserializeCollection(CassandraColumn cassandraColumn,
 			byte[] columnValue, String javaType) throws IOException,ClassNotFoundException{
-		String collectionType=getCollectionType(javaType);
+		String collectionType=CassandraTypesUtils.getCollectionType(javaType);
 		if(collectionType.equals("Map")){
 			Map<?,?> map=(Map<?, ?>) DefaultSerializer.deserialize(columnValue);
 			cassandraColumn.setColumnValue(map);
