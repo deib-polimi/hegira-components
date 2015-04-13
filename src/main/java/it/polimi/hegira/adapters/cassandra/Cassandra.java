@@ -80,19 +80,13 @@ public class Cassandra extends AbstractDatabase {
 			thread_id=(int) (Thread.currentThread().getId()%THREADS_NO);
 		
 		if(!isConnected()){
-			String server=PropertiesManager.getCredentials(Constants.CASSANDRA_SERVER);
-			String username=PropertiesManager.getCredentials(Constants.CASSANDRA_USERNAME);
-			String password=PropertiesManager.getCredentials(Constants.CASSANDRA_PASSWORD);
-			String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
 			
 			try{
-				log.debug(Thread.currentThread().getName()+" - Logging into "+server);
-				Cluster.Builder clusterBuilder=Cluster.builder()
-						.addContactPoint(server)
-						.withCredentials(username, password);
-				Cluster cluster=clusterBuilder.build();
-				Session session=cluster.connect(keyspace);
-				
+				log.debug(Thread.currentThread().getName()+" - Logging into server");
+				//
+				//retrieves the unique session from the session manager
+				//
+				Session session=SessionManager.getSessionManager().getSession();
 				ConnectionObject conObj= new ConnectionObject(session);
 				//I use set in order to keep things in order with the empty connectioObjects
 				connectionList.set(thread_id, conObj);
@@ -174,7 +168,7 @@ public class Cassandra extends AbstractDatabase {
 				//QUERY all the rows in the actual table
 				ResultSet queryResults=session.execute("SELECT * FROM "+tableName);
 				//
-				//TODO: do the transformation to the metamodel for each row
+				//transformation to the metamodel for each row
 				//
 				for(Row row : queryResults){
 					//create a new cassandra model instance
