@@ -8,4 +8,9 @@ package it.polimi.hegira.adapters.cassandra;
  */
 public class Table {
 
+	private String tableName;
+	
+	public Table(String tableName){
+		this.tableName=tableName;
+	}
 }
