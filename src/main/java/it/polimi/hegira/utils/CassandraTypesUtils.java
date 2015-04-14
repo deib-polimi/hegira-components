@@ -1,5 +1,7 @@
 package it.polimi.hegira.utils;
 
+import com.datastax.driver.core.DataType;
+
 import it.polimi.hegira.models.CassandraColumn;
 
 /**
@@ -207,6 +209,60 @@ public class CassandraTypesUtils {
 		case "custom":
 			//TODO: check
 			return "ByteBuffer";
+		default: 
+			throw  new ClassNotFoundException();
+		}
+	}
+	
+	/**
+	 * Retrieves a CQL datatype class from its name given as a string
+	 * @param type
+	 * @return the DataType class
+	 * @throws ClassNotFoundException
+	 */
+	public DataType getCQLDataType(String type) throws ClassNotFoundException{
+		switch(type){
+		case "ascii": 
+			return DataType.ascii();
+		case "bigint":
+			return DataType.bigint();
+		case "blob":
+			return DataType.blob();
+		case "boolean":
+			return DataType.cboolean();
+		case "counter":
+			return DataType.counter();
+		case "decimal":
+			return DataType.decimal();
+		case "double":
+			return DataType.cdouble();
+		case "float":
+			return DataType.cfloat();
+		case "inet":
+			return DataType.inet();
+		case "int":
+			return DataType.cint();
+		case "text":
+			return DataType.text();
+		case "timestamp":
+			return DataType.timestamp();
+		case "uuid":
+			return DataType.uuid();
+		case "varchar":
+			return DataType.varchar();
+		case "varint":
+			return DataType.varint();
+		case "timeuuid":
+			return DataType.timeuuid();
+		case "udt":
+			//TODO
+			throw  new ClassNotFoundException();
+		case "tuple":
+			//TODO
+			throw  new ClassNotFoundException();
+		case "custom":
+			//TODO: check
+			return DataType.blob();
 		default: 
 			throw  new ClassNotFoundException();
 		}

@@ -100,15 +100,6 @@ public class Table {
 	}
 	
 
-
-
-	private PreparedStatement getPreparedStatement(String statementString,
-			int rowSize) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
 	/**
 	 * This method creates the table in the cassandra db.
 	 * the initial table will contain only an id column
@@ -129,6 +120,19 @@ public class Table {
 		return null;
 	}
 	
+	
+	private PreparedStatement getPreparedStatement(String statementString,
+			int rowSize) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	/**
+	 * This method performs an alter on the table in order to introduce a new column.
+	 * 
+	 * @param name
+	 * @param valueType
+	 */
 	private void alterTable(String name, String valueType) {
 		// TODO Auto-generated method stub
 		
