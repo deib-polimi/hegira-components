@@ -1,5 +1,9 @@
 package it.polimi.hegira.utils;
 
+import java.security.InvalidParameterException;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.datastax.driver.core.DataType;
 
 import it.polimi.hegira.models.CassandraColumn;
@@ -215,12 +219,12 @@ public class CassandraTypesUtils {
 	}
 	
 	/**
-	 * Retrieves a CQL datatype class from its name given as a string
+	 * Retrieves a simple CQL datatype class from its name given as a string
 	 * @param type
 	 * @return the DataType class
 	 * @throws ClassNotFoundException
 	 */
-	public DataType getCQLDataType(String type) throws ClassNotFoundException{
+	private DataType getCQLSimpleDataType(String type) throws ClassNotFoundException{
 		switch(type){
 		case "ascii": 
 			return DataType.ascii();
@@ -266,5 +270,67 @@ public class CassandraTypesUtils {
 		default: 
 			throw  new ClassNotFoundException();
 		}
+	}
+	
+	/**
+	 * Returns the CQL DataType class corresponding to a collection
+	 * @param type - the string specifying the type in the form Map<K,X> or Set<K> or List<K>
+	 * @param subTypes - DataTypes of the subtypes
+	 * @return dataType
+	 * @throws ClassNotFoundException
+	 * @throws InvalidParameterException
+	 */
+	private DataType getCollectionCQLDataType(String type,List<DataType> subTypes) throws ClassNotFoundException,InvalidParameterException{
+		String collectionType=getCollectionType(type);
+		if(collectionType.equals("Map")){
+			if(subTypes.size()==2){
+				return DataType.map(subTypes.get(0), subTypes.get(1));
+			}else{
+				throw new InvalidParameterException();
+			}
+		}else{
+			if(subTypes.size()==1){
+				if(collectionType.equals("List")){
+					return DataType.list(subTypes.get(0));
+				}
+				if(collectionType.equals("Set")){
+					return DataType.set(subTypes.get(0));
+				}
+			}else{
+				throw new InvalidParameterException();
+			}
+		}
+		throw new ClassNotFoundException();
+	}
+	
+	/**
+	 * Returns the CQL DataType specified by a given string
+	 * Puts togheter the simple type case and the collection case.
+	 * @param type
+	 * @return the DataType
+	 * @throws ClassNotFoundException
+	 * @throws InvalidParameterException
+	 */
+	public DataType getCQLDataType(String type) throws ClassNotFoundException,InvalidParameterException{
+		if(isCollection(type)){
+			String collectionType=getCollectionType(type);
+			List<DataType> subTypes=new ArrayList<DataType>();
+			
+			if(collectionType.equals("Map")){
+				String sub1,sub2;
+				 sub1=getFirstSimpleType(type);
+				 sub2=getSecondSimpleType(type);
+				 
+				 subTypes.add(getCQLSimpleDataType(sub1));
+				 subTypes.add(getCQLSimpleDataType(sub2));
+			}else{
+				String sub=type.substring(type.indexOf("<"), type.indexOf(">"));
+				subTypes.add(getCQLSimpleDataType(sub));
+			}
+			
+			return getCollectionCQLDataType(type, subTypes);
+		}else
+			//simple type
+			return getCQLSimpleDataType(type);
 	}
 }
