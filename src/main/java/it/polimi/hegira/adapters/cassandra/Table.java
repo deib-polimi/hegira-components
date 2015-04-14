@@ -1,12 +1,18 @@
 package it.polimi.hegira.adapters.cassandra;
 
+import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
+import it.polimi.hegira.utils.Constants;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.hamcrest.Condition.Step;
+
+import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.ColumnDefinitions;
+import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 
@@ -24,8 +30,8 @@ public class Table {
 	private Session session;
 	//flag that signals if the table has been altered
 	private boolean changed;
-	//number of columns contained in the table
-	private int tableSize;
+	//the prepared statement for the actual table configuration (with all its columns)
+	private PreparedStatement defaultPrepared;
 	
 	/**
 	 * Initialize all the variables and creates the new table in cassandra.
@@ -37,8 +43,7 @@ public class Table {
 		columns=new ArrayList<String>();
 		//retrieves the unique session from the session manager
 		session=SessionManager.getSessionManager().getSession();
-		changed=false;
-		tableSize=0;
+		setChanged(false);
 		createInitialTable(tableName);
 	}
 	
@@ -50,11 +55,60 @@ public class Table {
 	 * @param row - the row to be insterted
 	 */
 	public synchronized void insert(CassandraModel row){
-		//number of column contained in the row
-		int rowSize=row.getColumns().size();
+		List<CassandraColumn> colsToInsert=row.getColumns();
 		
+		//number of column contained in the row
+		int rowSize=colsToInsert.size();
+		
+		//the string used to build the prepared statement
+		//it contains columns names and gets progressively update
+		//the String will have the format: name1, name2, name3, name4....
+		String statementString;
+		
+		//the array of objects to be inserted into the db
+		//the size of the array is rowSize+1 because we have to include the key
+		Object[] values=new Object[rowSize+1];
+		
+		//set the primary key
+		statementString="id";
+		values[0]=row.getKeyValue();
+		
+		//CHECK id the table contains the other columns
+		//at the same time build the names string and the object array
+		for(int i=1;i<rowSize+1;i++){
+			
+			//update names string
+			String name=colsToInsert.get(i-1).getColumnName();
+			statementString=statementString + ", "+name;
+			//update objects array
+			values[i]=colsToInsert.get(i-1).getColumnValue();
+			
+			//check if the table already contains the column
+			if(!columns.contains(name)){
+				//THE TABLE NEEDS TO BE UPDATED
+				alterTable(name,colsToInsert.get(i-1).getValueType());
+				setChanged(true);
+			}
+		}
+		
+		//retrieve the statement to be executed
+		PreparedStatement execStatement=getPreparedStatement(statementString,rowSize);
+		//bing the statement with the array of objects that have to be inserted
+		BoundStatement bind=execStatement.bind(values);
+		//insert
+		session.execute(bind);
 	}
 	
+
+
+
+	private PreparedStatement getPreparedStatement(String statementString,
+			int rowSize) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
 	/**
 	 * This method creates the table in the cassandra db.
 	 * the initial table will contain only an id column
@@ -62,6 +116,31 @@ public class Table {
 	 */
 	private void createInitialTable(String tableName) {
 		session.execute(
-			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( id varchar PRIMARY KEY );");
+			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY );");
+		//update the list of column names contained in the table
+		columns.add(Constants.DEFAULT_PRIMARY_KEY_NAME);
+		defaultPrepared=createPreparedStatement(Constants.DEFAULT_PRIMARY_KEY_NAME);
+	}
+
+
+	private PreparedStatement createPreparedStatement(
+			String defaultPrimaryKeyName) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	private void alterTable(String name, String valueType) {
+		// TODO Auto-generated method stub
+		
+	}
+
+
+	private boolean isChanged() {
+		return changed;
+	}
+
+
+	private void setChanged(boolean changed) {
+		this.changed = changed;
 	}
 }
