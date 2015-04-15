@@ -1,11 +1,11 @@
 package it.polimi.hegira.adapters.cassandra;
 
-import it.polimi.hegira.exceptions.ConnectException;
+
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
-import it.polimi.hegira.utils.DefaultErrors;
+
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;

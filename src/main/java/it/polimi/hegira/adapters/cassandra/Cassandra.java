@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
+import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -37,6 +38,9 @@ import com.datastax.driver.core.exceptions.QueryExecutionException;
 import com.datastax.driver.core.exceptions.QueryValidationException;
 import com.datastax.driver.core.exceptions.UnsupportedFeatureException;
 import com.datastax.driver.core.Row;
+import com.rabbitmq.client.ConsumerCancelledException;
+import com.rabbitmq.client.QueueingConsumer.Delivery;
+import com.rabbitmq.client.ShutdownSignalException;
 /**
  * 
  * @author Andrea Celli
@@ -400,8 +404,58 @@ public class Cassandra extends AbstractDatabase {
 
 	@Override
 	protected AbstractDatabase fromMyModel(Metamodel mm) {
-		// TODO Auto-generated method stub
-		return null;
+		log.debug(Thread.currentThread().getName()+" Cassandra consumer started ");
+		
+		//Thrift Deserializer
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		//retrieve thread number
+		int thread_id=0;
+		if(THREADS_NO!=0){
+			thread_id=(int) (Thread.currentThread().getId()%THREADS_NO);
+		}
+		//instantiate the cassandra transformer
+		//the consistency level is not needed. Entity inserted with eventual consistency
+		CassandraTransformer transformer=new CassandraTransformer();
+		//instantiate the TableManager
+		TablesManager tablesManager=TablesManager.getTablesManager();
+		
+		while(true){
+			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+
+					" THREADS_NO: "+THREADS_NO);
+			try{
+				//extract from the task queue
+				Delivery delivery=taskQueues.get(thread_id).getConsumer().nextDelivery();
+				if(delivery!=null){
+					//deserialize and retrieve the metamodel
+					Metamodel metaModel=new Metamodel();
+					deserializer.deserialize(metaModel, delivery.getBody());
+					//retrieve the Cassandra Model
+					CassandraModel cassandraModel=transformer.fromMyModel(metaModel);
+					
+					taskQueues.get(thread_id).sendAck(delivery);
+					
+					//retrieve the table and perform the insert
+					tablesManager.getTable(cassandraModel.getTable()).insert(cassandraModel);
+				}else{
+					log.debug(Thread.currentThread().getName() + " - The queue " +
+							TaskQueue.getDefaultTaskQueueName() + " is empty");
+					return null;
+				}
+			}catch(ShutdownSignalException |
+					ConsumerCancelledException |
+					InterruptedException ex){
+				log.error(Thread.currentThread().getName() + " - Cannot read next delivery from the queue " + 
+						TaskQueue.getDefaultTaskQueueName(), ex);
+			}catch(TException ex){
+				log.error(Thread.currentThread().getName() + " - Error deserializing message ", ex);
+			}catch(QueueException ex){
+				log.error(Thread.currentThread().getName() + " - Error sending an acknowledgment to the queue " + 
+						TaskQueue.getDefaultTaskQueueName(), ex);
+			}catch(ClassNotFoundException ex){
+				log.error(Thread.currentThread().getName() + " - Error in during the insertion -", ex);
+			}
+			
+		}
 	}
 
 	@Override
