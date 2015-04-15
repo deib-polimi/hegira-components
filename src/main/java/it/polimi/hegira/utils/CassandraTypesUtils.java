@@ -224,7 +224,7 @@ public class CassandraTypesUtils {
 	 * @return the DataType class
 	 * @throws ClassNotFoundException
 	 */
-	private DataType getCQLSimpleDataType(String type) throws ClassNotFoundException{
+	private static DataType getCQLSimpleDataType(String type) throws ClassNotFoundException{
 		switch(type){
 		case "ascii": 
 			return DataType.ascii();
@@ -280,7 +280,7 @@ public class CassandraTypesUtils {
 	 * @throws ClassNotFoundException
 	 * @throws InvalidParameterException
 	 */
-	private DataType getCollectionCQLDataType(String type,List<DataType> subTypes) throws ClassNotFoundException,InvalidParameterException{
+	private static DataType getCollectionCQLDataType(String type,List<DataType> subTypes) throws ClassNotFoundException,InvalidParameterException{
 		String collectionType=getCollectionType(type);
 		if(collectionType.equals("Map")){
 			if(subTypes.size()==2){
@@ -311,7 +311,7 @@ public class CassandraTypesUtils {
 	 * @throws ClassNotFoundException
 	 * @throws InvalidParameterException
 	 */
-	public DataType getCQLDataType(String type) throws ClassNotFoundException,InvalidParameterException{
+	public static DataType getCQLDataType(String type) throws ClassNotFoundException,InvalidParameterException{
 		if(isCollection(type)){
 			String collectionType=getCollectionType(type);
 			List<DataType> subTypes=new ArrayList<DataType>();

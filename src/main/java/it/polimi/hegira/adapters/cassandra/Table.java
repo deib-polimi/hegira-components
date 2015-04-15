@@ -1,13 +1,18 @@
 package it.polimi.hegira.adapters.cassandra;
 
+import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
+import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.DefaultErrors;
 
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.log4j.Logger;
 import org.hamcrest.Condition.Step;
 
 import com.datastax.driver.core.BoundStatement;
@@ -15,6 +20,9 @@ import com.datastax.driver.core.ColumnDefinitions;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.schemabuilder.Alter;
+import com.datastax.driver.core.schemabuilder.SchemaBuilder;
+import com.datastax.driver.core.schemabuilder.SchemaStatement;
 
 /**
  * This class manages a single Table.
@@ -23,6 +31,7 @@ import com.datastax.driver.core.Session;
  *
  */
 public class Table {
+	private static Logger log = Logger.getLogger(Table.class);
 
 	private String tableName;
 	private List<String> columns;
@@ -130,12 +139,24 @@ public class Table {
 	/**
 	 * This method performs an alter on the table in order to introduce a new column.
 	 * 
-	 * @param name
-	 * @param valueType
+	 * @param name - name of the new columns
+	 * @param valueType - the string representing the type of the new column
 	 */
-	private void alterTable(String name, String valueType) {
-		// TODO Auto-generated method stub
-		
+	private void alterTable(String name, String valueType) throws ClassNotFoundException,InvalidParameterException{
+		SchemaStatement alter;
+		try{
+			//build the alter
+			alter=SchemaBuilder
+					.alterTable(tableName)
+					.addColumn(name)
+					.type(CassandraTypesUtils.getCQLDataType(valueType));
+			//execute the alter
+			session.execute(alter);
+			//TODO: altre catch
+		}catch(ClassNotFoundException | InvalidParameterException ex){
+			log.error("Error while altering table: "+tableName+"\nStackTrace:\n"+ex.getStackTrace());
+			throw  ex;
+		}
 	}
 
 
