@@ -62,8 +62,9 @@ public class Table {
 	 * This methods is synchronized in order to avoid conflicts due to different threads changing the same table.
 	 * 
 	 * @param row - the row to be insterted
+	 * @throws ClassNotFoundException, InvalidParameterException
 	 */
-	public synchronized void insert(CassandraModel row){
+	public synchronized void insert(CassandraModel row) throws ClassNotFoundException,InvalidParameterException{
 		List<CassandraColumn> colsToInsert=row.getColumns();
 		
 		//number of column contained in the row
@@ -119,21 +120,71 @@ public class Table {
 			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY );");
 		//update the list of column names contained in the table
 		columns.add(Constants.DEFAULT_PRIMARY_KEY_NAME);
-		defaultPrepared=createPreparedStatement(Constants.DEFAULT_PRIMARY_KEY_NAME);
+		defaultPrepared=createPreparedStatement(Constants.DEFAULT_PRIMARY_KEY_NAME,0);
 	}
 
 
+	/**
+	 * Returns a new prepared statement to insert a new row with the given columns.
+	 * @param columnNames
+	 * @param rowSize - number of columns contained in the row (without id)
+	 * @return PreparedStatement
+	 */
 	private PreparedStatement createPreparedStatement(
-			String defaultPrimaryKeyName) {
-		// TODO Auto-generated method stub
-		return null;
+			String columnNames,int rowSize) {
+		String completeStatementString=packString(columnNames,rowSize);
+		return session.prepare(completeStatementString);
 	}
 	
-	
-	private PreparedStatement getPreparedStatement(String statementString,
+	/**
+	 * Takes as input the string containing column names in the format:
+	 * name1, name2, name3...
+	 * Pack the string with the remaining parts in order to use it to build a preparedStatement to perform an insert.
+	 * The final string will be in the form:
+	 * "INSERT INTO <tableName> (<name1>, <name2>, <name3>) VALUES (?,?,?)"
+	 * @param columnNames
+	 * @param rowSize - number of columns contained in the row (without id)
+	 * @return the complete string for a prepared statement that performs an insert
+	 */
+	private String packString(String columnNames,int rowSize) {
+		String completeString="INSERT INTO "+tableName+" ( "+columnNames+" ) VALUES ( ";
+		//there's at least a ? for the id
+		String questionMarks="?";
+		//add other values question marks for remaining columns
+		for(int i=0;i<rowSize;i++){
+			questionMarks=questionMarks+",?";
+		}
+		completeString=completeString+questionMarks+" ) ";
+		return completeString;
+	}
+
+
+	/**
+	 * Returns a prepared statement and eventually updates the default prepared statement.
+	 * 1) table has been altered-->create and set a new default statement, return the default statement
+	 * 2) table has not been altered
+	 *  2.1)same number of columns-->return the default PreparedStatement (reuse to increase efficiency)
+	 *  2.2)lower number of columns-->compute and return a new prepared statement (without setting it as default)
+	 * @param columnNames
+	 * @param rowSize
+	 * @return PreparedStatement
+	 */
+	private PreparedStatement getPreparedStatement(String columnNames,
 			int rowSize) {
-		// TODO Auto-generated method stub
-		return null;
+		//table has been changed
+		if(isChanged()){
+			defaultPrepared=createPreparedStatement(columnNames, rowSize);
+			return defaultPrepared;
+		}else{
+			//not changed and same number of columns
+			//+1 takes into account the id
+			if(rowSize+1==columns.size()){
+				return defaultPrepared;
+			}else{
+				//lower number of columns but no table changes
+				return createPreparedStatement(columnNames, rowSize);
+			}
+		}
 	}
 	
 	/**
