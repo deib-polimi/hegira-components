@@ -37,11 +37,13 @@ public class Constants {
 	public static final String GAE_DATASTORE="DATASTORE";
 	public static final String AZURE_TABLES="TABLES";
 	public static final String AMAZON_DYNAMODB="DYNAMODB";
+	public static final String CASSANDRA="CASSANDRA";
 	public static List<String> getSupportedDatabseList(){
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(GAE_DATASTORE);
 		list.add(AZURE_TABLES);
 		list.add(AMAZON_DYNAMODB);
+		list.add(CASSANDRA);
 		return list;
 	}
 	public static boolean isSupported(String database){
