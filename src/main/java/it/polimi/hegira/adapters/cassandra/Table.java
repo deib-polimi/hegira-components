@@ -6,7 +6,6 @@ import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
 
-
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -21,6 +20,8 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.schemabuilder.Alter;
+import com.datastax.driver.core.schemabuilder.CreateIndex;
+import com.datastax.driver.core.schemabuilder.CreateIndex.CreateIndexOn;
 import com.datastax.driver.core.schemabuilder.SchemaBuilder;
 import com.datastax.driver.core.schemabuilder.SchemaStatement;
 
@@ -96,7 +97,7 @@ public class Table {
 			//check if the table already contains the column
 			if(!columns.contains(name)){
 				//THE TABLE NEEDS TO BE UPDATED
-				alterTable(name,colsToInsert.get(i-1).getValueType());
+				alterTable(name,colsToInsert.get(i-1).getValueType(),colsToInsert.get(i-1).isIndexed());
 				setChanged(true);
 			}
 		}
@@ -190,10 +191,11 @@ public class Table {
 	/**
 	 * This method performs an alter on the table in order to introduce a new column.
 	 * 
-	 * @param name - name of the new columns
+	 * @param name - name of the new column
 	 * @param valueType - the string representing the type of the new column
+	 * @param indexed - true if the column has to be indexed
 	 */
-	private void alterTable(String name, String valueType) throws ClassNotFoundException,InvalidParameterException{
+	private void alterTable(String name, String valueType, boolean indexed) throws ClassNotFoundException,InvalidParameterException{
 		SchemaStatement alter;
 		try{
 			//build the alter
@@ -203,6 +205,17 @@ public class Table {
 					.type(CassandraTypesUtils.getCQLDataType(valueType));
 			//execute the alter
 			session.execute(alter);
+			
+			//create a new index if needed
+			if(indexed){
+				SchemaStatement createIndex=SchemaBuilder
+						.createIndex(name+"_index")
+						.onTable(tableName)
+						.andColumn(name);
+				
+				session.execute(createIndex);
+			}
+			
 			//TODO: altre catch
 		}catch(ClassNotFoundException | InvalidParameterException ex){
 			log.error("Error while altering table: "+tableName+"\nStackTrace:\n"+ex.getStackTrace());
