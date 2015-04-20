@@ -1,10 +1,15 @@
 package Cassandra;
 
 import static org.junit.Assert.*;
+
+import java.util.List;
+
 import it.polimi.hegira.adapters.cassandra.SessionManager;
 import it.polimi.hegira.adapters.cassandra.Table;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
+import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.PropertiesManager;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -12,6 +17,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.Session;
 
 import static org.mockito.Mockito.mock; 
@@ -28,31 +34,6 @@ import static org.mockito.Mockito.when;
  *
  */
 public class CassandraTableTest {
-
-	/*private static SessionManager sessionManager;
-	private static Session session;
-	private static Cluster cluster;
-	
-	@BeforeClass
-	public static void setUp(){
-		//creating the stub for the SessionManager object
-		sessionManager=mock(SessionManager.class);	
-		
-		//create the session to be used for test purposes 
-		String hostname="127.0.0.1";
-		Cluster.Builder clusterBuilder=Cluster.builder()
-				.addContactPoint(hostname);
-		cluster=clusterBuilder.build();
-		//we suppose the local instance of cassandra to have a keyspace named 'test'
-		session=cluster.connect("test");
-		
-		
-		when(SessionManager.getSessionManager()).thenAnswer(new Answer<Session>() {
-		     public Session answer(InvocationOnMock invocation) throws Throwable {
-		         return session;
-		     }
-		 });
-	}*/
 	
 	private static Table table;
 	
@@ -60,6 +41,19 @@ public class CassandraTableTest {
 	public void constructorTest() {
 		
 		table=new Table("users");
+		assertEquals(table.getTableName(),"users");
+		
+		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+	
+		List<ColumnMetadata> initialColumns=table
+				.getSession()
+				.getCluster()
+				.getMetadata()
+				.getKeyspace(keyspace)
+				.getTable("users")
+				.getColumns();
+		assertEquals(table.getColumns().size(),initialColumns.size());
+		assertNotNull(table.getSession());
 		
 	}
 	

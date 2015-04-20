@@ -5,9 +5,11 @@ import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.utils.CassandraTypesUtils;
 import it.polimi.hegira.utils.Constants;
+import it.polimi.hegira.utils.PropertiesManager;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -16,9 +18,11 @@ import org.hamcrest.Condition.Step;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.ColumnDefinitions;
+import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.schemabuilder.Alter;
 import com.datastax.driver.core.schemabuilder.CreateIndex;
 import com.datastax.driver.core.schemabuilder.CreateIndex.CreateIndexOn;
@@ -54,7 +58,9 @@ public class Table {
 		//retrieves the unique session from the session manager
 		session=SessionManager.getSessionManager().getSession();
 		setChanged(false);
+		
 		createInitialTable(tableName);
+	
 	}
 	
 	/**
@@ -119,10 +125,39 @@ public class Table {
 		session.execute(
 			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY );");
 		//update the list of column names contained in the table
-		columns.add(Constants.DEFAULT_PRIMARY_KEY_NAME);
-		defaultPrepared=createPreparedStatement(Constants.DEFAULT_PRIMARY_KEY_NAME,0);
+		String columnsNames=initColumnList(tableName);
+		defaultPrepared=createPreparedStatement(columnsNames,columns.size()-1);
 	}
-
+	
+	/**
+	 *  initialize the list of columns
+	 *	it's needed to manage a table that already exists in the database
+	 * @param tableName
+	 * @return string of names of the initial columns
+	 */
+	private String initColumnList(String tableName){
+		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		//string of column names to build the first prepared statement
+		String columnNames=" ";
+		List<ColumnMetadata> existingColumns=session
+				.getCluster()
+				.getMetadata()
+				.getKeyspace(keyspace)
+				.getTable(tableName)
+				.getColumns();
+		
+		for(int i=0;i<existingColumns.size()-1;i++){
+				String name=existingColumns.get(i).getName();
+				columns.add(name);
+				columnNames=columnNames+name+", ";
+		}
+		//last element
+		String name=existingColumns.get(existingColumns.size()-1).getName();
+		columns.add(name);
+		columnNames=columnNames+name;
+		
+		return columnNames;
+	}
 
 	/**
 	 * Returns a new prepared statement to insert a new row with the given columns.
@@ -226,6 +261,18 @@ public class Table {
 		}
 	}
 
+
+	public String getTableName() {
+		return tableName;
+	}
+
+	public List<String> getColumns() {
+		return columns;
+	}
+
+	public Session getSession() {
+		return session;
+	}
 
 	private boolean isChanged() {
 		return changed;
