@@ -57,7 +57,6 @@ public class Table {
 		createInitialTable(tableName);
 	}
 	
-
 	/**
 	 * This methods inserts a row in the table.
 	 * This methods is synchronized in order to avoid conflicts due to different threads changing the same table.
@@ -216,9 +215,13 @@ public class Table {
 				session.execute(createIndex);
 			}
 			
+			//add the column to the columns list
+			columns.add(name);
+			
 			//TODO: altre catch
 		}catch(ClassNotFoundException | InvalidParameterException ex){
 			log.error("Error while altering table: "+tableName+"\nStackTrace:\n"+ex.getStackTrace());
+			ex.printStackTrace();
 			throw  ex;
 		}
 	}
