@@ -92,19 +92,27 @@ public class Tables extends AbstractDatabase {
 					AzureTablesTransformer att = new AzureTablesTransformer();
 					AzureTablesModel fromMyModel = att.fromMyModel(myModel);
 					List<DynamicTableEntity> entities = fromMyModel.getEntities();
-					taskQueues.get(thread_id).sendAck(delivery);
 					
 					String tableName = fromMyModel.getTableName();
 					CloudTable tbl = createTable(tableName);
-					if(tbl==null) return null;
+					if(tbl==null){
+						taskQueues.get(thread_id).sendNack(delivery);
+						log.info("Sending Nack!! for entity(/ies)");
+						return null;
+					}
 					for(DynamicTableEntity entity : entities){
 						TableResult ie = insertEntity(tableName, entity);
-						if(ie==null) return null;
+						if(ie==null){
+							taskQueues.get(thread_id).sendNack(delivery);
+							log.info("Sending Nack!! for entity(/ies)");
+							return null;
+						}
 						count++;
 						if(count%2000==0)
 							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
 					}
 					
+					taskQueues.get(thread_id).sendAck(delivery);
 				}else{
 					log.debug(Thread.currentThread().getName() + " - The queue " +
 							TaskQueue.getDefaultTaskQueueName() + " is empty");
