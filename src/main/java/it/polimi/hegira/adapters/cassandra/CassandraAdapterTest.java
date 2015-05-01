@@ -164,7 +164,7 @@ public class CassandraAdapterTest {
 		assertEquals("Callejon",result.getRowKey());
 		assertEquals("@players#Callejon",result.getPartitionGroup());
 		
-		Column resultCol=result.getColumns().get("players").get(1);
+		Column resultCol=result.getColumns().get("players").get(0);
 		assertEquals("goal",resultCol.getColumnName());
 		try {
 			assertEquals(9,DefaultSerializer.deserialize(resultCol.getColumnValue()));

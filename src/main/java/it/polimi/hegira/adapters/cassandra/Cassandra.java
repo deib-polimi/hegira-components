@@ -194,6 +194,8 @@ public class Cassandra extends AbstractDatabase {
 					while(columnsIterator.hasNext()){
 						ColumnDefinitions.Definition column=columnsIterator.next();
 						
+						//don't add the id column
+						if(!column.getName().equals("id")){
 						CassandraColumn cassColumn=new CassandraColumn();
 						
 						//set name
@@ -217,6 +219,7 @@ public class Cassandra extends AbstractDatabase {
 									+" for row: "+key
 									+" on cassandra table: "+tableName, ex);
 						}
+				    }
 				}
 					//from cassandraModel to MetaModel
 					Metamodel meta=cassandraTransformer.toMyModel(cassModel);
