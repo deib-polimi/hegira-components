@@ -136,7 +136,7 @@ public class CassandraTableTest {
 				    			}
 				    			else{
 				    				if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
-				    					throw new IllegalArgumentException();
+				    					fail("unexpected column");
 				    			}
 				    		}
 				    		break;
@@ -150,7 +150,7 @@ public class CassandraTableTest {
 				    				assertNull(myTable.getColumn(columnName).getIndex());
 				    			}else{
 				    			  if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
-				    				throw new IllegalArgumentException();
+				    				  fail("unexpected column");
 				    			}
 				    		}
 				    		break;
@@ -164,7 +164,7 @@ public class CassandraTableTest {
 				    			}
 				    			else{
 				    				if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
-				    					throw new IllegalArgumentException();
+				    					fail("unexpected column");
 				    			}
 				    		}
 				    		break;
@@ -178,12 +178,12 @@ public class CassandraTableTest {
 				    				assertNull(myTable.getColumn(columnName).getIndex());
 				    			}else{
 				    			   if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
-				    				throw new IllegalArgumentException();
+				    				   fail("unexpected column");
 				    			}
 				    		}
 				    		break;
 				    		default: 
-				    			throw new IllegalArgumentException();
+				    			fail("unexpected row");
 		  }
 	  	}
 	  }
