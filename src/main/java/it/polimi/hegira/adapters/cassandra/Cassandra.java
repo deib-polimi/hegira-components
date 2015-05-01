@@ -1,6 +1,7 @@
 package it.polimi.hegira.adapters.cassandra;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +30,8 @@ import it.polimi.hegira.utils.PropertiesManager;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ColumnDefinitions;
 import com.datastax.driver.core.ColumnDefinitions.Definition;
+import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
@@ -159,9 +162,10 @@ public class Cassandra extends AbstractDatabase {
 		//
 		// get the list of all tables contained in the keyspace
 		Cluster cluster=session.getCluster();
-		List<TableMetadata> tables=(ArrayList<TableMetadata>) cluster
+		String keySpace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		Collection<TableMetadata> tables=cluster
 				.getMetadata()
-				.getKeyspace(Constants.CASSANDRA_KEYSPACE)
+				.getKeyspace(keySpace)
 				.getTables();
 		
 		for(TableMetadata table:tables){
