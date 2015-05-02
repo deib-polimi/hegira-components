@@ -19,6 +19,7 @@ import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
+import it.polimi.hegira.models.Column;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.transformers.CassandraTransformer;
@@ -223,6 +224,7 @@ public class Cassandra extends AbstractDatabase {
 				}
 					//from cassandraModel to MetaModel
 					Metamodel meta=cassandraTransformer.toMyModel(cassModel);
+					List<Column> colz=meta.getColumns().get("players");
 					try{
 						//serialize & add to the queue
 						taskQueues.get(thread_id).publish(serializer.serialize(meta));
@@ -245,6 +247,7 @@ public class Cassandra extends AbstractDatabase {
 		return null;
 	}
 	
+
 	/**
 	 * This method set the type of the cassandra column and, according to the specific type, it retrieve and sets the value
 	 * @param cassandraColumn
@@ -379,7 +382,7 @@ public class Cassandra extends AbstractDatabase {
 		
 		String collectionType=CassandraTypesUtils.getCollectionType(dataType);
 		
-		if(collectionType=="map"){
+		if(collectionType.equals("map")){
 			String CQLSubType1=CassandraTypesUtils.getFirstSimpleType(dataType);
 			//retrieve the second subtype removing spaces in the string
 			String CQLSubType2=CassandraTypesUtils.getSecondSimpleType(dataType).replaceAll("\\s","");
@@ -392,13 +395,13 @@ public class Cassandra extends AbstractDatabase {
 			//the collection has only one subtype
 			//retrieve the subtype
 			String CQLSubType=dataType.substring(dataType.indexOf("<")+1,dataType.indexOf(">"));
-			if(collectionType=="set"){
+			if(collectionType.equals("set")){
 				//set type
 				cassandraColumn.setValueType("set<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
 				//set the value
 				cassandraColumn.setColumnValue(row.getSet(columnName, Object.class));
 			}else{
-				if(collectionType=="list"){
+				if(collectionType.equals("list")){
 					//set type
 					cassandraColumn.setValueType("list<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
 					//set the value
