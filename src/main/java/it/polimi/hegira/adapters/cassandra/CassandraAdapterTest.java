@@ -103,6 +103,9 @@ public class CassandraAdapterTest {
 		reader=(Cassandra)DatabaseFactory.getDatabase("CASSANDRA", optionsReader);
 		writer=(Cassandra)DatabaseFactory.getDatabase("CASSANDRA", optionsWriter);
 		
+		assertEquals(false, reader.isConnected());
+		assertEquals(false, writer.isConnected());
+		
 		try{
 			reader.connect();
 			writer.connect();
@@ -116,7 +119,9 @@ public class CassandraAdapterTest {
 	}
 	
 
-	
+	/**
+	 * This test assumes the read consistency is set to eventual
+	 */
 	@Test
 	public void toMyModelTest(){
 		TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
@@ -132,11 +137,16 @@ public class CassandraAdapterTest {
 		Cluster cluster=clusterBuilder.build();
 		Session session=cluster.connect("test");
 		
-		String tableName="players";
+		String firstTableName="players";
+		String secondTableName="users";
 		session.execute(
-			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY,"
+			      "CREATE TABLE IF NOT EXISTS " + firstTableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY,"
 			      		+ "goal int,"
 			      		+ "teams list<varchar> );");
+		session.execute(
+			      "CREATE TABLE IF NOT EXISTS " + secondTableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY,"
+			      		+ "age int,"
+			      		+ "contacts map<varchar,varchar> );");
 			
 		List<String> fakeList1=new ArrayList<String>();
 		fakeList1.add("Real Madrid"); 
@@ -145,14 +155,30 @@ public class CassandraAdapterTest {
 		fakeList2.add("Manchester United"); 
 		fakeList2.add("Real Madrid");
 		
-		Statement insert1 = QueryBuilder.insertInto("players").values(
+		Map<String,String> fakeMap1=new HashMap<String,String>();
+		fakeMap1.put("Andrea","andrea@gmail.com");
+		fakeMap1.put("Andre","andre@gmail.com");
+		Map<String,String> fakeMap2=new HashMap<String,String>();
+		fakeMap2.put("Luca","luca@gmail.com");
+		fakeMap2.put("leo","leo@gmail.com");
+		
+		Statement insert1 = QueryBuilder.insertInto(firstTableName).values(
 	               new String[] { "id","goal","teams"},
 	               new Object[] {"Callejon",9,fakeList1});
 		   session.execute(insert1); 
-		Statement insert2 = QueryBuilder.insertInto("players").values(
+		Statement insert2 = QueryBuilder.insertInto(firstTableName).values(
 	               new String[] { "id","goal","teams"},
 	               new Object[] {"Ronaldo",30,fakeList2});
 		   session.execute(insert2);
+		   
+		Statement insert3 = QueryBuilder.insertInto(secondTableName).values(
+				new String[] {"id","age","contacts"},
+				new Object[] {"Andrea",22,fakeMap1});
+		session.execute(insert3);
+		Statement insert4 = QueryBuilder.insertInto(secondTableName).values(
+				new String[] {"id","age","contacts"},
+				new Object[] {"Leo",1,fakeMap2});
+		session.execute(insert4);		
 		   
 		//create the serialized column coresponding to the one read
 		/*Column col=new Column();
@@ -190,33 +216,98 @@ public class CassandraAdapterTest {
 		
 		
 		try {
-			Mockito.verify(mockedTaskQueue, Mockito.times(2)).publish(serializedRow.capture());
+			Mockito.verify(mockedTaskQueue, Mockito.times(4)).publish(serializedRow.capture());
 		} catch (QueueException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		//
-		//check row 1
+		//check user 1
 		//
-		Metamodel result1=new Metamodel();
+		Metamodel resultUser1=new Metamodel();
 		try {
-			deserializer.deserialize(result1, serializedRow.getAllValues().get(1));
+			deserializer.deserialize(resultUser1, serializedRow.getAllValues().get(0));
 		} catch (TException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
-		assertEquals("Callejon",result1.getRowKey());
-		assertEquals("@players#Callejon",result1.getPartitionGroup());
+		assertEquals("Leo",resultUser1.getRowKey());
+		assertEquals("@users#Leo",resultUser1.getPartitionGroup());
+		assertEquals(resultUser1.getColumns().get("users").size(),2);
+		Column userAge=resultUser1.getColumns().get("users").get(0);
+		Column contactsUser=resultUser1.getColumns().get("users").get(1);
+		assertEquals("age",userAge.getColumnName());
+		assertEquals("contacts",contactsUser.getColumnName());
+		try {
+			assertEquals(1,DefaultSerializer.deserialize(userAge.getColumnValue()));
+			assertEquals(fakeMap2, DefaultSerializer.deserialize(contactsUser.getColumnValue()));
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		assertEquals("Integer", userAge.getColumnValueType());
+		assertEquals("Map<String,String>", contactsUser.getColumnValueType());
+		assertEquals(false,userAge.isIndexable());
+		assertEquals(false,contactsUser.isIndexable());
+		//
+		//check user 2
+		//
+		Metamodel resultUser2=new Metamodel();
+		try {
+			deserializer.deserialize(resultUser2, serializedRow.getAllValues().get(1));
+		} catch (TException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
-		assertEquals(result1.getColumns().get("players").size(),2);
+		assertEquals("Andrea",resultUser2.getRowKey());
+		assertEquals("@users#Andrea",resultUser2.getPartitionGroup());
+		assertEquals(resultUser2.getColumns().get("users").size(),2);
+		Column userAge2=resultUser2.getColumns().get("users").get(0);
+		Column contactsUser2=resultUser2.getColumns().get("users").get(1);
+		assertEquals("age",userAge2.getColumnName());
+		assertEquals("contacts",contactsUser2.getColumnName());
+		try {
+			assertEquals(22,DefaultSerializer.deserialize(userAge2.getColumnValue()));
+			assertEquals(fakeMap1, DefaultSerializer.deserialize(contactsUser2.getColumnValue()));
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		assertEquals("Integer", userAge2.getColumnValueType());
+		assertEquals("Map<String,String>", contactsUser2.getColumnValueType());
+		assertEquals(false,userAge2.isIndexable());
+		assertEquals(false,contactsUser2.isIndexable());
+		//
+		//check players row 1
+		//
+		Metamodel resultPlayer1=new Metamodel();
+		try {
+			deserializer.deserialize(resultPlayer1, serializedRow.getAllValues().get(3));
+		} catch (TException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
-		Column resultCol=result1.getColumns().get("players").get(0);
-		Column listResult=result1.getColumns().get("players").get(1);
+		assertEquals("Callejon",resultPlayer1.getRowKey());
+		assertEquals("@players#Callejon",resultPlayer1.getPartitionGroup());
+		
+		assertEquals(resultPlayer1.getColumns().get("players").size(),2);
+		
+		Column resultCol=resultPlayer1.getColumns().get("players").get(0);
+		Column listResult=resultPlayer1.getColumns().get("players").get(1);
 		assertEquals("goal",resultCol.getColumnName());
 		assertEquals("teams",listResult.getColumnName());
 		try {
 			assertEquals(9,DefaultSerializer.deserialize(resultCol.getColumnValue()));
+			assertEquals(fakeList1, DefaultSerializer.deserialize(listResult.getColumnValue()));
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -225,25 +316,32 @@ public class CassandraAdapterTest {
 			e.printStackTrace();
 		}
 		assertEquals("Integer", resultCol.getColumnValueType());
+		assertEquals("List<String>", listResult.getColumnValueType());
 		assertEquals(false,resultCol.isIndexable());
+		assertEquals(false,listResult.isIndexable());
 		//
-		// check row 2
+		// check players row 2
 		//
-		Metamodel result2=new Metamodel();
+		Metamodel resultPlayer2=new Metamodel();
 		try {
-			deserializer.deserialize(result2, serializedRow.getAllValues().get(0));
+			deserializer.deserialize(resultPlayer2, serializedRow.getAllValues().get(2));
 		} catch (TException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
-		assertEquals("Ronaldo",result2.getRowKey());
-		assertEquals("@players#Ronaldo",result2.getPartitionGroup());
+		assertEquals("Ronaldo",resultPlayer2.getRowKey());
+		assertEquals("@players#Ronaldo",resultPlayer2.getPartitionGroup());
 		
-		Column resultCol2=result2.getColumns().get("players").get(0);
+		assertEquals(resultPlayer2.getColumns().get("players").size(),2);
+		
+		Column resultCol2=resultPlayer2.getColumns().get("players").get(0);
+		Column listResult2=resultPlayer2.getColumns().get("players").get(1);
 		assertEquals("goal",resultCol2.getColumnName());
+		assertEquals("teams",listResult2.getColumnName());
 		try {
 			assertEquals(30,DefaultSerializer.deserialize(resultCol2.getColumnValue()));
+			assertEquals(fakeList2, DefaultSerializer.deserialize(listResult2.getColumnValue()));
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -252,12 +350,15 @@ public class CassandraAdapterTest {
 			e.printStackTrace();
 		}
 		assertEquals("Integer", resultCol2.getColumnValueType());
+		assertEquals("List<String>", listResult2.getColumnValueType());
 		assertEquals(false,resultCol2.isIndexable());
+		assertEquals(false,listResult2.isIndexable());
+
 		//
 		// drops the table
 		//
-		//session.execute("DROP TABLE players");
-		
+		session.execute("DROP TABLE "+firstTableName);
+		session.execute("DROP TABLE "+secondTableName);
 	}
 
 }

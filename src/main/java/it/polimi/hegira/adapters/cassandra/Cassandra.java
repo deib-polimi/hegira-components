@@ -397,13 +397,13 @@ public class Cassandra extends AbstractDatabase {
 			String CQLSubType=dataType.substring(dataType.indexOf("<")+1,dataType.indexOf(">"));
 			if(collectionType.equals("set")){
 				//set type
-				cassandraColumn.setValueType("set<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
+				cassandraColumn.setValueType("Set<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
 				//set the value
 				cassandraColumn.setColumnValue(row.getSet(columnName, Object.class));
 			}else{
 				if(collectionType.equals("list")){
 					//set type
-					cassandraColumn.setValueType("list<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
+					cassandraColumn.setValueType("List<"+CassandraTypesUtils.getJavaSimpleType(CQLSubType)+">");
 					//set the value
 					cassandraColumn.setColumnValue(row.getList(columnName, Object.class));
 				}
