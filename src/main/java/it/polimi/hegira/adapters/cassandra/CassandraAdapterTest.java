@@ -41,6 +41,10 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.google.appengine.repackaged.org.apache.commons.collections.map.HashedMap;
+import com.rabbitmq.client.ConsumerCancelledException;
+import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.QueueingConsumer.Delivery;
+import com.rabbitmq.client.ShutdownSignalException;
 
 import static org.powermock.api.mockito.PowerMockito.*;
 import static org.mockito.Mockito.mock; 
@@ -68,23 +72,70 @@ public class CassandraAdapterTest {
 	private  static TaskQueue mockedTaskQueue;
 	private static Cassandra reader;
 	private static Cassandra writer;
+	private static QueueingConsumer mockedConsumer;
+	private static Delivery mockedDelivery;
+	private static byte[] toBeConsumed;
 	
 	/**
 	 * Create stubs for the TaskQueue
 	 */
 	@BeforeClass
 	public static void init(){
+		TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+		//
+		//create the sample data to be inserted
+		//
+		Map<String,List<Column>> columns=new HashMap<String,List<Column>>();
+		List<Column> columnsList=new ArrayList<Column>();
+		Column col=new Column();
+		col.setColumnName("goal");
+		try {
+			col.setColumnValue(DefaultSerializer.serialize(30));
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		col.setColumnValueType("Integer");
+		col.setIndexable(false);
+		columnsList.add(col);
+		columns.put("any", columnsList);
+		Metamodel toBeConsumedMeta=new Metamodel("@players#ronaldo", "ronaldo", columns);
+		try {
+			toBeConsumed=serializer.serialize(toBeConsumedMeta);
+		} catch (TException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		
 		
 		mockedTaskQueue=mock(TaskQueue.class);
+		mockedConsumer=mock(QueueingConsumer.class);
+		mockedDelivery=mock(Delivery.class);
 		
 		//Abstractact database, costruttore
+		//to mock the queue behavior in toMyModel
 		try{
         whenNew(TaskQueue.class).withAnyArguments().thenReturn(mockedTaskQueue);
 		}catch(Exception e){
 			System.out.println("error while stubbing the queue constructor");
 		}
-		
-		//when(mockedTaskQueue.publish(Mockito.any(byte[].class))).thenReturn();
+		//to mock the queue behaviour in fromMyModel
+		Mockito.when(mockedTaskQueue.getConsumer()).thenReturn(mockedConsumer);
+		try {
+			Mockito.when(mockedConsumer.nextDelivery()).thenReturn(mockedDelivery).thenReturn(null);
+		} catch (ShutdownSignalException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ConsumerCancelledException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Mockito.when(mockedDelivery.getBody()).thenReturn(toBeConsumed);
 
 	}
 	
@@ -359,6 +410,13 @@ public class CassandraAdapterTest {
 		//
 		session.execute("DROP TABLE "+firstTableName);
 		session.execute("DROP TABLE "+secondTableName);
+	}
+	
+	@Test
+	public void fromMyModel(){
+		
+		writer.fromMyModel(null);
+		
 	}
 
 }
