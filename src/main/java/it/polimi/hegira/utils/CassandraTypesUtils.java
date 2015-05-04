@@ -269,6 +269,7 @@ public class CassandraTypesUtils {
 			return DataType.blob();
 		default: 
 			throw  new ClassNotFoundException();
+		
 		}
 	}
 	
@@ -324,7 +325,7 @@ public class CassandraTypesUtils {
 				 subTypes.add(getCQLSimpleDataType(sub1));
 				 subTypes.add(getCQLSimpleDataType(sub2));
 			}else{
-				String sub=type.substring(type.indexOf("<"), type.indexOf(">"));
+				String sub=type.substring(type.indexOf("<")+1, type.indexOf(">"));
 				subTypes.add(getCQLSimpleDataType(sub));
 			}
 			

@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import it.polimi.hegira.adapters.AbstractDatabase;
 import it.polimi.hegira.adapters.DatabaseFactory;
@@ -87,19 +89,28 @@ public class CassandraAdapterTest {
 		//
 		Map<String,List<Column>> columns=new HashMap<String,List<Column>>();
 		List<Column> columnsList=new ArrayList<Column>();
-		Column col=new Column();
-		col.setColumnName("goal");
+		Column col1=new Column();
+		Column col2=new Column();
+		col1.setColumnName("goal");
+		col2.setColumnName("mates");
+		Set<String> set=new HashSet<String>();
+		set.add("benzema"); set.add("marcelo");
 		try {
-			col.setColumnValue(DefaultSerializer.serialize(30));
+			col1.setColumnValue(DefaultSerializer.serialize(30));
+			col2.setColumnValue(DefaultSerializer.serialize(set));
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		col.setColumnValueType("Integer");
-		col.setIndexable(false);
-		columnsList.add(col);
-		columns.put("any", columnsList);
+		col1.setColumnValueType("Integer");
+		col2.setColumnValueType("Set<String>");
+		col1.setIndexable(false);
+		col2.setIndexable(false);
+		columnsList.add(col1);
+		columnsList.add(col2);
+		columns.put("players", columnsList);
 		Metamodel toBeConsumedMeta=new Metamodel("@players#ronaldo", "ronaldo", columns);
+		toBeConsumedMeta.getColumnFamilies().add("players");
 		try {
 			toBeConsumed=serializer.serialize(toBeConsumedMeta);
 		} catch (TException e) {
@@ -286,6 +297,8 @@ public class CassandraAdapterTest {
 		assertEquals("Leo",resultUser1.getRowKey());
 		assertEquals("@users#Leo",resultUser1.getPartitionGroup());
 		assertEquals(resultUser1.getColumns().get("users").size(),2);
+		assertEquals(1, resultUser1.getColumnFamilies().size());
+		assertEquals("users",resultUser1.getColumnFamilies().get(0));
 		Column userAge=resultUser1.getColumns().get("users").get(0);
 		Column contactsUser=resultUser1.getColumns().get("users").get(1);
 		assertEquals("age",userAge.getColumnName());
