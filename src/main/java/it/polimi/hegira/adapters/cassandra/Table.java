@@ -1,6 +1,7 @@
 package it.polimi.hegira.adapters.cassandra;
 
 
+import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.utils.CassandraTypesUtils;
@@ -51,8 +52,9 @@ public class Table {
 	 * Initialize all the variables and creates the new table in cassandra.
 	 * When created the table contains only the column for the id values.
 	 * @param tableName
+	 * @Throws ConnectException (raised if the session manager is not able to connect to Cassandra)
 	 */
-	public Table(String tableName){
+	public Table(String tableName) throws ConnectException{
 		this.tableName=tableName;
 		columns=new ArrayList<String>();
 		//retrieves the unique session from the session manager

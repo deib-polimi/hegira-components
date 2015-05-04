@@ -441,11 +441,24 @@ public class Cassandra extends AbstractDatabase {
 					deserializer.deserialize(metaModel, delivery.getBody());
 					//retrieve the Cassandra Model
 					CassandraModel cassandraModel=transformer.fromMyModel(metaModel);
-					
+				
+					//retrieve the table and tries perform the insert
+					try{
+						tablesManager.getTable(cassandraModel.getTable()).insert(cassandraModel);
+					}catch(ConnectException ex){
+						log.error(Thread.currentThread().getName() + " - Not able to connect to Cassandra", ex);
+						//nack
+						taskQueues.get(thread_id).sendNack(delivery);
+						log.info("Sending Nack!! for entity(/ies)");
+					}catch(ClassNotFoundException ex){
+						log.error(Thread.currentThread().getName() + " - Error in during the insertion -", ex);
+						//nack
+						taskQueues.get(thread_id).sendNack(delivery);
+						log.info("Sending Nack!! for entity(/ies)");
+					}
+					//send ack
 					taskQueues.get(thread_id).sendAck(delivery);
 					
-					//retrieve the table and perform the insert
-					tablesManager.getTable(cassandraModel.getTable()).insert(cassandraModel);
 				}else{
 					log.debug(Thread.currentThread().getName() + " - The queue " +
 							TaskQueue.getDefaultTaskQueueName() + " is empty");
@@ -461,10 +474,7 @@ public class Cassandra extends AbstractDatabase {
 			}catch(QueueException ex){
 				log.error(Thread.currentThread().getName() + " - Error sending an acknowledgment to the queue " + 
 						TaskQueue.getDefaultTaskQueueName(), ex);
-			}catch(ClassNotFoundException ex){
-				log.error(Thread.currentThread().getName() + " - Error in during the insertion -", ex);
 			}
-			
 		}
 	}
 

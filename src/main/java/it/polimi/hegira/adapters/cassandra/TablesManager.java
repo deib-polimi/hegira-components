@@ -1,5 +1,7 @@
 package it.polimi.hegira.adapters.cassandra;
 
+import it.polimi.hegira.exceptions.ConnectException;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,8 +54,9 @@ public class TablesManager {
 	 * 
 	 * @param tableName
 	 * @return Table - the table corresponding to the specified name
+	 * @Throws ConnectException (raised if the session manager is not able to connect to Cassandra)
 	 */
-	public Table getTable(String tableName){
+	public Table getTable(String tableName) throws ConnectException{
 		//check if the table exists
 		if(!contains(tableName)){
 			//creates it if it does not exists
@@ -66,8 +69,9 @@ public class TablesManager {
 	/**
 	 * Creates a new table with the specified name and adds it to the map
 	 * @param tableName
+	 * @Throws ConnectException (raised if the session manager is not able to connect to Cassandra)
 	 */
-	private void createTable(String tableName) {
+	private void createTable(String tableName) throws ConnectException {
 		tablesMap.put(tableName, new Table(tableName));
 	}
 	

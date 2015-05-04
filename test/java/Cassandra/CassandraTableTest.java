@@ -7,6 +7,7 @@ import java.util.List;
 
 import it.polimi.hegira.adapters.cassandra.SessionManager;
 import it.polimi.hegira.adapters.cassandra.Table;
+import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.transformers.ITransformer;
@@ -51,7 +52,12 @@ public class CassandraTableTest {
 		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
 		
 		
-		table=new Table("users");
+		try {
+			table=new Table("users");
+		} catch (ConnectException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		//check if a session has been created
 		assertNotNull(table.getSession());
