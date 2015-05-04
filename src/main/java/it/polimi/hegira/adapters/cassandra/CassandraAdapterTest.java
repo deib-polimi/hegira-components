@@ -77,6 +77,8 @@ public class CassandraAdapterTest {
 	private static QueueingConsumer mockedConsumer;
 	private static Delivery mockedDelivery;
 	private static byte[] toBeConsumed;
+	private static Set<String> fakeSet;
+	private static Session session; 
 	
 	/**
 	 * Create stubs for the TaskQueue
@@ -85,7 +87,7 @@ public class CassandraAdapterTest {
 	public static void init(){
 		TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
 		//
-		//create the sample data to be inserted
+		//create the sample data to be inserted used in (from my model test)
 		//
 		Map<String,List<Column>> columns=new HashMap<String,List<Column>>();
 		List<Column> columnsList=new ArrayList<Column>();
@@ -93,11 +95,11 @@ public class CassandraAdapterTest {
 		Column col2=new Column();
 		col1.setColumnName("goal");
 		col2.setColumnName("mates");
-		Set<String> set=new HashSet<String>();
-		set.add("benzema"); set.add("marcelo");
+		fakeSet=new HashSet<String>();
+		fakeSet.add("benzema"); fakeSet.add("marcelo");
 		try {
 			col1.setColumnValue(DefaultSerializer.serialize(30));
-			col2.setColumnValue(DefaultSerializer.serialize(set));
+			col2.setColumnValue(DefaultSerializer.serialize(fakeSet));
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -197,7 +199,7 @@ public class CassandraAdapterTest {
 		Cluster.Builder clusterBuilder=Cluster.builder()
 				.addContactPoint(hostname);
 		Cluster cluster=clusterBuilder.build();
-		Session session=cluster.connect("test");
+		session=cluster.connect("test");
 		
 		String firstTableName="players";
 		String secondTableName="users";
@@ -430,6 +432,53 @@ public class CassandraAdapterTest {
 		
 		writer.fromMyModel(null);
 		
+		
+		ArgumentCaptor<byte[]> serializedRow=ArgumentCaptor.forClass(byte[].class);
+		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
+		
+		reader.toMyModel(null);
+		
+		try {
+			Mockito.verify(mockedTaskQueue, Mockito.times(5)).publish(serializedRow.capture());
+		} catch (QueueException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		Metamodel result=new Metamodel();
+		try {
+			deserializer.deserialize(result, serializedRow.getAllValues().get(4));
+		} catch (TException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		assertEquals("ronaldo",result.getRowKey());
+		assertEquals("@players#ronaldo",result.getPartitionGroup());
+		
+		assertEquals(result.getColumns().get("players").size(),2);
+		
+		Column resultCol=result.getColumns().get("players").get(0);
+		Column set=result.getColumns().get("players").get(1);
+		assertEquals("goal",resultCol.getColumnName());
+		assertEquals("mates",set.getColumnName());
+		try {
+			assertEquals(30,DefaultSerializer.deserialize(resultCol.getColumnValue()));
+			assertEquals(fakeSet, DefaultSerializer.deserialize(set.getColumnValue()));
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		assertEquals("Integer", resultCol.getColumnValueType());
+		assertEquals("Set<String>", set.getColumnValueType());
+		assertEquals(false,resultCol.isIndexable());
+		assertEquals(false,set.isIndexable());
+		
+		session.execute("DROP TABLE players");
+
 	}
 
 }
