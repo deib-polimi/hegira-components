@@ -14,7 +14,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.event.EventUtils;
+import org.apache.log4j.Logger;
 
+import it.polimi.hegira.adapters.cassandra.Cassandra;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.models.Column;
@@ -29,7 +31,7 @@ import it.polimi.hegira.utils.DefaultSerializer;
  *
  */
 public class CassandraTransformer implements ITransformer<CassandraModel> {
-
+	
 	//this variable is used to determine wheter the consistency has to be strong or eventual
 	private String consistency;
 	
@@ -81,7 +83,7 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @throws IllegalArgumentException  when the parameter is not a supported level of consistency
 	 */
 	public void setConsistency(String consistency) throws IllegalArgumentException{
-		  if(consistency.equals(Constants.EVENTUAL_CONSISTENCY) || consistency.equals(Constants.STRONG_CONSISTENCY)){
+		  if(consistency.equals(Constants.CONSISTENCY_EVENTUAL) || consistency.equals(Constants.CONSISTENCY_STRONG)){
 				this.consistency=consistency;
 		  }else
 				throw new IllegalArgumentException("consistency level not supported");
@@ -111,10 +113,10 @@ public class CassandraTransformer implements ITransformer<CassandraModel> {
 	 * @param model
 	 */
 	private void mapPartitionGroup(Metamodel metamodel, CassandraModel model) {
-		if (consistency.equals(Constants.EVENTUAL_CONSISTENCY)){
+		if (consistency.equals(Constants.CONSISTENCY_EVENTUAL)){
 			metamodel.setPartitionGroup("@"+model.getTable()+"#"+model.getKeyValue());
 		}else
-			if(consistency.equals(Constants.STRONG_CONSISTENCY))
+			if(consistency.equals(Constants.CONSISTENCY_STRONG))
 				metamodel.setPartitionGroup("@strong#strong");
 	}
 

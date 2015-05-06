@@ -5,6 +5,7 @@ import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.utils.CassandraTypesUtils;
+import it.polimi.hegira.utils.ConfigurationManagerCassandra;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.PropertiesManager;
 
@@ -47,7 +48,8 @@ public class Table {
 	private boolean changed;
 	//the prepared statement for the actual table configuration (with all its columns)
 	private PreparedStatement defaultPrepared;
-	
+	//the name of the primary key
+	private String primaryKeyName;
 	/**
 	 * Initialize all the variables and creates the new table in cassandra.
 	 * When created the table contains only the column for the id values.
@@ -60,6 +62,7 @@ public class Table {
 		//retrieves the unique session from the session manager
 		session=SessionManager.getSessionManager().getSession();
 		setChanged(false);
+		primaryKeyName=ConfigurationManagerCassandra.getConfigurationProperties(Constants.PRIMARY_KEY_NAME);
 		
 		createInitialTable(tableName);
 	
@@ -88,7 +91,7 @@ public class Table {
 		Object[] values=new Object[rowSize+1];
 		
 		//set the primary key
-		statementString="id";
+		statementString=primaryKeyName;
 		values[0]=row.getKeyValue();
 		
 		//CHECK id the table contains the other columns
@@ -125,7 +128,7 @@ public class Table {
 	 */
 	private void createInitialTable(String tableName) {
 		session.execute(
-			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY );");
+			      "CREATE TABLE IF NOT EXISTS " + tableName + " ( " + primaryKeyName + " varchar PRIMARY KEY );");
 		//update the list of column names contained in the table
 		String columnsNames=initColumnList(tableName);
 		defaultPrepared=createPreparedStatement(columnsNames,columns.size()-1);
@@ -138,7 +141,7 @@ public class Table {
 	 * @return string of names of the initial columns
 	 */
 	private String initColumnList(String tableName){
-		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		//string of column names to build the first prepared statement
 		String columnNames=" ";
 		List<ColumnMetadata> existingColumns=session

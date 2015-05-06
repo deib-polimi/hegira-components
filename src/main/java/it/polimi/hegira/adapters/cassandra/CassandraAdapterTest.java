@@ -18,6 +18,7 @@ import it.polimi.hegira.exceptions.QueueException;
 import it.polimi.hegira.models.Column;
 import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
+import it.polimi.hegira.utils.ConfigurationManagerCassandra;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultSerializer;
 
@@ -79,6 +80,7 @@ public class CassandraAdapterTest {
 	private static byte[] toBeConsumed;
 	private static Set<String> fakeSet;
 	private static Session session; 
+	private static String primaryKeyName;
 	
 	/**
 	 * Create stubs for the TaskQueue
@@ -86,6 +88,9 @@ public class CassandraAdapterTest {
 	@BeforeClass
 	public static void init(){
 		TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
+		
+		primaryKeyName=ConfigurationManagerCassandra.getConfigurationProperties(Constants.PRIMARY_KEY_NAME);
+		
 		//
 		//create the sample data to be inserted used in (from my model test)
 		//
@@ -161,7 +166,7 @@ public class CassandraAdapterTest {
 		
 		Map<String,String> optionsWriter=new HashedMap();
 		optionsWriter.put("mode", "consumer");
-		optionsWriter.put("threads", "1");
+		optionsWriter.put("threads", "2");
 		optionsWriter.put("queue-address", "none");
 		
 		reader=(Cassandra)DatabaseFactory.getDatabase("CASSANDRA", optionsReader);
@@ -204,11 +209,11 @@ public class CassandraAdapterTest {
 		String firstTableName="players";
 		String secondTableName="users";
 		session.execute(
-			      "CREATE TABLE IF NOT EXISTS " + firstTableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY,"
+			      "CREATE TABLE IF NOT EXISTS " + firstTableName + " ( " + primaryKeyName + " varchar PRIMARY KEY,"
 			      		+ "goal int,"
 			      		+ "teams list<varchar> );");
 		session.execute(
-			      "CREATE TABLE IF NOT EXISTS " + secondTableName + " ( " + Constants.DEFAULT_PRIMARY_KEY_NAME + " varchar PRIMARY KEY,"
+			      "CREATE TABLE IF NOT EXISTS " + secondTableName + " ( " + primaryKeyName + " varchar PRIMARY KEY,"
 			      		+ "age int,"
 			      		+ "contacts map<varchar,varchar> );");
 			
@@ -429,6 +434,8 @@ public class CassandraAdapterTest {
 	
 	@Test
 	public void fromMyModel(){
+		
+		
 		
 		writer.fromMyModel(null);
 		

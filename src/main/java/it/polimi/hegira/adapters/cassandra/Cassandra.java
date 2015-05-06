@@ -24,6 +24,7 @@ import it.polimi.hegira.models.Metamodel;
 import it.polimi.hegira.queue.TaskQueue;
 import it.polimi.hegira.transformers.CassandraTransformer;
 import it.polimi.hegira.utils.CassandraTypesUtils;
+import it.polimi.hegira.utils.ConfigurationManagerCassandra;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.DefaultErrors;
 import it.polimi.hegira.utils.PropertiesManager;
@@ -45,6 +46,7 @@ import com.datastax.driver.core.Row;
 import com.rabbitmq.client.ConsumerCancelledException;
 import com.rabbitmq.client.QueueingConsumer.Delivery;
 import com.rabbitmq.client.ShutdownSignalException;
+import com.sun.xml.bind.v2.runtime.reflect.opt.Const;
 /**
  * 
  * @author Andrea Celli
@@ -152,10 +154,15 @@ public class Cassandra extends AbstractDatabase {
         TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
         //Create a new instance of the cassandra transformer used to translate entities into the
         //metamodel format
-        /**
-         * TODO: manage the consistency type
-         */
-        CassandraTransformer cassandraTransformer=new CassandraTransformer(Constants.EVENTUAL_CONSISTENCY);
+        //the read consistency is taken from the cassandra configuration file
+        CassandraTransformer cassandraTransformer;
+        try{
+        	String consistency=ConfigurationManagerCassandra.getConfigurationProperties(Constants.READ_CONSISTENCY);
+        	cassandraTransformer=new CassandraTransformer(consistency);
+        }catch(IllegalArgumentException e){
+        	log.error("Consistency type not supported, check the configuration file");
+        	return null;
+        }
 		
 		Session session=connectionList.get(thread_id).session;
 		//
@@ -163,11 +170,13 @@ public class Cassandra extends AbstractDatabase {
 		//
 		// get the list of all tables contained in the keyspace
 		Cluster cluster=session.getCluster();
-		String keySpace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		String keySpace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		Collection<TableMetadata> tables=cluster
 				.getMetadata()
 				.getKeyspace(keySpace)
 				.getTables();
+		
+		String primaryKeyName=ConfigurationManagerCassandra.getConfigurationProperties(Constants.PRIMARY_KEY_NAME);
 		
 		for(TableMetadata table:tables){
 			//get the name of the table
@@ -186,7 +195,7 @@ public class Cassandra extends AbstractDatabase {
 					cassModel.setTable(tableName);
 					//set the key
 					//the primary key name has to be set by default (see limitations)
-					String key=row.getString(Constants.DEFAULT_PRIMARY_KEY_NAME);
+					String key=row.getString(primaryKeyName);
 					cassModel.setKeyValue(key);
 					//
 					//COLUMNS
@@ -196,7 +205,7 @@ public class Cassandra extends AbstractDatabase {
 						ColumnDefinitions.Definition column=columnsIterator.next();
 						
 						//don't add the id column
-						if(!column.getName().equals("id")){
+						if(!column.getName().equals(primaryKeyName)){
 						CassandraColumn cassColumn=new CassandraColumn();
 						
 						//set name

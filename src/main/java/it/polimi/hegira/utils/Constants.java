@@ -23,6 +23,10 @@ public class Constants {
 	 * CREDENTIALS FILE PATH
 	 */
 	public static final String CREDENTIALS_PATH = "credentials.properties";
+	/**
+	 * CASSANDRA CONFIGURATION FILE PATH
+	 */
+	public static final String CASSANDRA_CONFIGURATION_FILE="cassandraConfiguration.properties";
 	
 	/**
 	* STATUS RESPONSE
@@ -67,14 +71,12 @@ public class Constants {
 	public static final String CASSANDRA_SERVER = "cassandra.server";
 	public static final String CASSANDRA_USERNAME = "cassandra.username";
 	public static final String CASSANDRA_PASSWORD = "cassandra.password";
-	public static final String CASSANDRA_KEYSPACE = "cassandra.keyspace";
 	public static List<String> getSupportedCredentials(){
 		ArrayList<String> list = new ArrayList<String>();
 		list.add(AZURE_PROP);
 		list.add(DATASTORE_USERNAME);
 		list.add(DATASTORE_PASSWORD);
 		list.add(DATASTORE_SERVER);
-		list.add(CASSANDRA_KEYSPACE);
 		list.add(CASSANDRA_SERVER);
 		list.add(CASSANDRA_USERNAME);
 		list.add(CASSANDRA_PASSWORD);
@@ -83,25 +85,27 @@ public class Constants {
 	public static final String ZK_CONNECTSTRING = "zookeeper.connectString";
 	
 	/**
+	 * CASSANDRA CONFIFURATION PROPERTIES
+	 * Properties stored in the CASSANDRA CONFIGURATION file
+	 */
+	public static final String KEYSPACE = "cassandra.keyspace";
+	public static final String READ_CONSISTENCY= "cassandra.readConsistency";
+	public static final String PRIMARY_KEY_NAME="cassandra.primarKey";
+	/**
+	 * CASSANDRA CONSISTENCY LEVELS
+	 */
+	public static final String CONSISTENCY_EVENTUAL="eventual";
+	public static final String CONSISTENCY_STRONG="strong";
+	/**
 	* PRODUCER AND CONSUMER CONSTANTS
 	*/
 	public static final String PRODUCER = "producer";
 	public static final String CONSUMER = "consumer";
 	
 	/**
-	 * TYPES OF CONSISTENCY	
-	 */
-	public static final String EVENTUAL_CONSISTENCY="eventual";
-	public static final String STRONG_CONSISTENCY="strong";
-	
-	/**
 	 * DEFAULT TABLE NAME
 	 * (used during the migration of data to Cassandra when the metamodel does NOT specify any column family)
 	 */
 	public static final String DEFAULT_TABLE_CASSANDRA="defaultTableCassandra";
-	/**
-	 * DEFAULT PRIMARY KEY COLUMN NAME
-	 */
-	public static final String DEFAULT_PRIMARY_KEY_NAME="id";
 
 }

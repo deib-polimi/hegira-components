@@ -11,6 +11,7 @@ import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.models.CassandraColumn;
 import it.polimi.hegira.models.CassandraModel;
 import it.polimi.hegira.transformers.ITransformer;
+import it.polimi.hegira.utils.ConfigurationManagerCassandra;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.PropertiesManager;
 
@@ -46,10 +47,12 @@ import static org.mockito.Mockito.when;
 public class CassandraTableTest {
 	
 	private static Table table;
+	private static String primaryKeyName=ConfigurationManagerCassandra.getConfigurationProperties(Constants.PRIMARY_KEY_NAME);
 	
 	@Test
 	public void constructorTest() {
-		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		
+		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		
 		
 		try {
@@ -83,7 +86,7 @@ public class CassandraTableTest {
 	
 	@Test
 	public void insertTest(){
-		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		
 		//create a new cassandra model instances
 		CassandraModel row=new CassandraModel("users", "Bonaventura");
@@ -130,7 +133,7 @@ public class CassandraTableTest {
 				    ColumnDefinitions.Definition col=iterator.next();
 				    String columnName=col.getName();
 				    //for each row check the specific columns
-				    String name=resultRow.getString(Constants.DEFAULT_PRIMARY_KEY_NAME);
+				    String name=resultRow.getString(primaryKeyName);
 				    switch(name){
 				    	case "Bonaventura":
 				    		if(columnName.equals("gol")){
@@ -141,7 +144,7 @@ public class CassandraTableTest {
 				    				assertNull(resultRow.getString(columnName));
 				    			}
 				    			else{
-				    				if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
+				    				if(!columnName.equals(primaryKeyName))
 				    					fail("unexpected column");
 				    			}
 				    		}
@@ -155,7 +158,7 @@ public class CassandraTableTest {
 				    				assertEquals(resultRow.getString("notes"), "good play");
 				    				assertNull(myTable.getColumn(columnName).getIndex());
 				    			}else{
-				    			  if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
+				    			  if(!columnName.equals(primaryKeyName))
 				    				  fail("unexpected column");
 				    			}
 				    		}
@@ -169,7 +172,7 @@ public class CassandraTableTest {
 				    				assertNull(resultRow.getString(columnName));
 				    			}
 				    			else{
-				    				if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
+				    				if(!columnName.equals(primaryKeyName))
 				    					fail("unexpected column");
 				    			}
 				    		}
@@ -183,7 +186,7 @@ public class CassandraTableTest {
 				    				assertEquals(resultRow.getString("notes"), "average");
 				    				assertNull(myTable.getColumn(columnName).getIndex());
 				    			}else{
-				    			   if(!columnName.equals(Constants.DEFAULT_PRIMARY_KEY_NAME))
+				    			   if(!columnName.equals(primaryKeyName))
 				    				   fail("unexpected column");
 				    			}
 				    		}

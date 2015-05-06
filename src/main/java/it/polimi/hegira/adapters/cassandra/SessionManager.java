@@ -4,6 +4,7 @@ import org.apache.log4j.Logger;
 
 import it.polimi.hegira.exceptions.ConnectException;
 import it.polimi.hegira.queue.TaskQueue;
+import it.polimi.hegira.utils.ConfigurationManagerCassandra;
 import it.polimi.hegira.utils.Constants;
 import it.polimi.hegira.utils.PropertiesManager;
 
@@ -34,7 +35,7 @@ public class SessionManager {
 		String server=PropertiesManager.getCredentials(Constants.CASSANDRA_SERVER);
 		String username=PropertiesManager.getCredentials(Constants.CASSANDRA_USERNAME);
 		String password=PropertiesManager.getCredentials(Constants.CASSANDRA_PASSWORD);
-		String keyspace=PropertiesManager.getCredentials(Constants.CASSANDRA_KEYSPACE);
+		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		//build the session
 			try{
 				Cluster.Builder clusterBuilder=Cluster.builder()
