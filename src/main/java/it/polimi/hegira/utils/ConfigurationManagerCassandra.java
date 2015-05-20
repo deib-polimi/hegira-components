@@ -15,10 +15,10 @@ public class ConfigurationManagerCassandra {
 	private static String getPropertiesFromFile(String file,String propertyKey){
 		log.debug("trying to read credential properties");
 		Properties properties=new Properties();
-		URL resource = Thread.currentThread().getContextClassLoader().getResource(file);
-		
+		//URL resource = Thread.currentThread().getContextClassLoader().getResource(file);
+		InputStream inputStream = PropertiesManager.class.getResourceAsStream("/"+file);
 		try{
-			InputStream inputStream=new FileInputStream(resource.getFile());
+			//InputStream inputStream=new FileInputStream(resource.getFile());
 			properties.load(inputStream);
 			return properties.getProperty(propertyKey);
 		}catch(FileNotFoundException | NullPointerException e){
