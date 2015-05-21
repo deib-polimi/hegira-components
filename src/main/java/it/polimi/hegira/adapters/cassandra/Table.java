@@ -240,6 +240,8 @@ public class Table {
 	 */
 	private void alterTable(String name, String valueType, boolean indexed) throws ClassNotFoundException,InvalidParameterException{
 		SchemaStatement alter;
+		log.debug("Start altering table: "+tableName+" Columns: "+columns.toString());
+		log.debug("Alter table to add column: "+name);
 		try{
 			//build the alter
 			alter=SchemaBuilder
@@ -252,7 +254,7 @@ public class Table {
 			//create a new index if needed
 			if(indexed){
 				SchemaStatement createIndex=SchemaBuilder
-						.createIndex(name+"_index")
+						.createIndex(tableName+"_"+name+"_index")
 						.onTable(tableName)
 						.andColumn(name);
 				
