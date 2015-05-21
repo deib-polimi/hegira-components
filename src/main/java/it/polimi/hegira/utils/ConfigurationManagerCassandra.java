@@ -13,7 +13,7 @@ public class ConfigurationManagerCassandra {
 	private static Logger log=Logger.getLogger(ConfigurationManagerCassandra.class);
 	
 	private static String getPropertiesFromFile(String file,String propertyKey){
-		log.debug("trying to read credential properties");
+		log.debug("trying to read configuration info!!!");
 		Properties properties=new Properties();
 		//URL resource = Thread.currentThread().getContextClassLoader().getResource(file);
 		InputStream inputStream = PropertiesManager.class.getResourceAsStream("/"+file);

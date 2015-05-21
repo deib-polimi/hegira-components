@@ -144,13 +144,17 @@ public class Table {
 		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		//string of column names to build the first prepared statement
 		String columnNames=" ";
-		List<ColumnMetadata> existingColumns=session
+		TableMetadata tableMetadata=null;
+		//it goes on only when it has retrieved the data for the table (it has to exist given that it's created before calling
+		//this method)
+		while(tableMetadata==null){
+			tableMetadata=session
 				.getCluster()
 				.getMetadata()
 				.getKeyspace(keyspace)
-				.getTable(tableName)
-				.getColumns();
-		
+				.getTable(tableName);
+		}
+		List<ColumnMetadata> existingColumns=tableMetadata.getColumns();
 		for(int i=0;i<existingColumns.size()-1;i++){
 				String name=existingColumns.get(i).getName();
 				columns.add(name);
