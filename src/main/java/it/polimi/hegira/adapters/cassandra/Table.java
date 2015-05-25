@@ -76,6 +76,8 @@ public class Table {
 	 * @throws ClassNotFoundException, InvalidParameterException
 	 */
 	public synchronized void insert(CassandraModel row) throws ClassNotFoundException,InvalidParameterException{
+		log.debug(Thread.currentThread().getName()+" starting using table: "+tableName);
+		
 		List<CassandraColumn> colsToInsert=row.getColumns();
 		
 		//number of column contained in the row
@@ -118,6 +120,8 @@ public class Table {
 		BoundStatement bind=execStatement.bind(values);
 		//insert
 		session.execute(bind);
+		
+		log.debug(Thread.currentThread().getName()+" finished using table: "+tableName);
 	}
 	
 

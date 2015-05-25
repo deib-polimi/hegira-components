@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 /**
  * This class implements the singleton pattern so that all the threads share the same instance of the Table Manager.
  * The Table Manager manages Tables instances and assign them to threads when needed.
@@ -15,6 +17,8 @@ import java.util.Map;
  */
 public class TablesManager {
 
+	private static Logger log = Logger.getLogger(TablesManager.class);
+	
 	//instance of the TableManager 
 	private static TablesManager manager;
 	//map of the existing tables
@@ -33,8 +37,10 @@ public class TablesManager {
 	 */
 	public static TablesManager getTablesManager(){
 		//create a new TablesManager only if it does not alreay exist
-		if(manager==null){
-			manager=new TablesManager();
+		synchronized (TablesManager.class) {
+			if(manager==null){
+				manager=new TablesManager();
+			}
 		}
 		return manager;
 	}
@@ -44,7 +50,7 @@ public class TablesManager {
 	 * @param String - tableName
 	 * @return true if the table is already contained in the map, false otherwise
 	 */
-	public boolean contains(String tableName){
+	private boolean contains(String tableName){
 		return tablesMap.containsKey(tableName);
 	}
 	
@@ -56,7 +62,7 @@ public class TablesManager {
 	 * @return Table - the table corresponding to the specified name
 	 * @Throws ConnectException (raised if the session manager is not able to connect to Cassandra)
 	 */
-	public Table getTable(String tableName) throws ConnectException{
+	public synchronized Table getTable(String tableName) throws ConnectException{
 		//check if the table exists
 		if(!contains(tableName)){
 			//creates it if it does not exists
@@ -72,6 +78,7 @@ public class TablesManager {
 	 * @Throws ConnectException (raised if the session manager is not able to connect to Cassandra)
 	 */
 	private void createTable(String tableName) throws ConnectException {
+		log.debug(Thread.currentThread().getName()+" creating table: "+tableName);
 		tablesMap.put(tableName, new Table(tableName));
 	}
 	
