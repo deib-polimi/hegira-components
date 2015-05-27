@@ -85,12 +85,12 @@
 	</dependency>
 	<!-- <dependency>
 		<groupId>it.polimi.hegira</groupId>
-		<artifactId>zkWrapper-Client</artifactId>
+		<artifactId>zkWrapper-client</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
 	</dependency> -->
 	<dependency>
 		<groupId>it.polimi.hegira</groupId>
-		<artifactId>zkWrapper-Server</artifactId>
+		<artifactId>zkWrapper-server</artifactId>
 		<version>0.0.6-SNAPSHOT</version>
 	</dependency>
   </dependencies>
