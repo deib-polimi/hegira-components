@@ -15,8 +15,11 @@ import com.datastax.driver.core.exceptions.NoHostAvailableException;
 
 /**
  * This class implements the singleton pattern.
- * In this way all threads are forced to share the same session.
- * This is a recomended practice when dealing with a single keyspace.
+ * 
+ * new implementation: a new session is created and returned for each thread
+ * 
+ * old implementation: (In this way all threads are forced to share the same session.
+ * This is a recomended practice when dealing with a single keyspace.)
  * 
  * @author Andrea Celli
  *
@@ -28,16 +31,21 @@ public class SessionManager {
 	//the instance of the manager
 	private static SessionManager manager;
 	//the session shared among differend threads
-	private static Session session;
+	//private static Session session;
 	
-	private SessionManager() throws ConnectException{
+	private String server;
+	private String username;
+	private String password;
+	private String keyspace;
+	
+	private SessionManager(){
 		//credentials
-		String server=PropertiesManager.getCredentials(Constants.CASSANDRA_SERVER);
-		String username=PropertiesManager.getCredentials(Constants.CASSANDRA_USERNAME);
-		String password=PropertiesManager.getCredentials(Constants.CASSANDRA_PASSWORD);
-		String keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
+		this.server=PropertiesManager.getCredentials(Constants.CASSANDRA_SERVER);
+		this.username=PropertiesManager.getCredentials(Constants.CASSANDRA_USERNAME);
+		this.password=PropertiesManager.getCredentials(Constants.CASSANDRA_PASSWORD);
+		this.keyspace=ConfigurationManagerCassandra.getConfigurationProperties(Constants.KEYSPACE);
 		//build the session
-			try{
+		/*	try{
 				Cluster.Builder clusterBuilder=Cluster.builder()
 						.addContactPoint(server)
 						.withCredentials(username, password);
@@ -49,7 +57,7 @@ public class SessionManager {
 					IllegalStateException ex){
 				log.error(Thread.currentThread().getName() + " - Not able to connect to Cassandra ",ex);
 				throw new ConnectException(ex);
-			}
+			}*/
 	}
 	
 	/**
@@ -66,10 +74,25 @@ public class SessionManager {
 	}
 	
 	/**
-	 * get the unique session
+	 * creates and returns a new session
+	 * 
 	 * @return session
 	 */
-	public Session getSession(){
-		return session;
+	public Session getSession() throws ConnectException{
+		Session session;
+		try{
+			Cluster.Builder clusterBuilder=Cluster.builder()
+					.addContactPoint(server)
+					.withCredentials(username, password);
+			Cluster cluster=clusterBuilder.build();
+			session=cluster.connect(keyspace);
+			log.debug("new session created for thread: "+Thread.currentThread().getName());
+			return session;
+		}catch(NoHostAvailableException | 
+				AuthenticationException |
+				IllegalStateException ex){
+			log.error(Thread.currentThread().getName() + " - Not able to connect to Cassandra ",ex);
+			throw new ConnectException(ex);
 	}
+ }
 }
