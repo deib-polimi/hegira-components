@@ -28,9 +28,9 @@ cassandra.keyspace=<keyspace>
 cassandra.readConsistency=<consistency-type>
 cassandra.primarKey=<primary-key-column-name>
 ```
-The specified keyspace is the one in which data will be inserted.
-The consistency settings affect only read operations. The supported levels are: "eventual" and "strong".
-The primary key parameter specifies the name of the column that will be used as the primary key in all the tables to be migrated.
+The specified keyspace is the one in which data will be inserted.   
+The consistency settings affect only read operations. The supported levels are: "eventual" and "strong".   
+The primary key parameter specifies the name of the column that will be used as the primary key in all the tables to be migrated.  
 
 ##### Build
 The project is Maven compliant, hence by executing the command ```mvn clean package``` the proper packages will be created.
