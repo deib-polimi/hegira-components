@@ -8,7 +8,7 @@ After having downloaded the source code a new file should be created under the f
 * credentials.properties
 
 ###### credentials.properties
-Contains the credentials that Hegira 4Clouds needs to access the databases. Currently supported databases are Google AppEngine Datastore and Microsoft Azure Tables:
+Contains the credentials that Hegira 4Clouds needs to access the databases. Currently supported databases are Google AppEngine Datastore, Microsoft Azure Tables and Cassandra:
 
 ```java
 azure.storageConnectionString=<escaped-azure-storage-connection-string>
@@ -16,7 +16,21 @@ datastore.username=<appengine-account-email-address>
 datastore.password=<appengine-account-password>
 datastore.server=<application-name>.appspot.com
 zookeeper.connectString=<zookeeper-ip-address>:<port>
+cassandra.server=<ip-address>
+cassandra.username=<Cassandra-username>
+cassandra.password=<Cassandra-password>
 ```
+###### cassandraConfiguration.properties
+This file is located in the folder src/main/resources. It contains parameters that the user has to specify if the migration is from or to Cassandra. 
+
+```java
+cassandra.keyspace=<keyspace>
+cassandra.readConsistency=<consistency-type>
+cassandra.primarKey=<primary-key-column-name>
+```
+The specified keyspace is the one in which data will be inserted.
+The consistency settings affect only read operations. The supported levels are: "eventual" and "strong".
+The primary key parameter specifies the name of the column that will be used as the primary key in all the tables to be migrated.
 
 ##### Build
 The project is Maven compliant, hence by executing the command ```mvn clean package``` the proper packages will be created.
