@@ -1,5 +1,6 @@
 package it.polimi.hegira.adapters;
 
+import it.polimi.hegira.adapters.cassandra.Cassandra;
 import it.polimi.hegira.adapters.datastore.Datastore;
 import it.polimi.hegira.adapters.tables.Tables;
 import it.polimi.hegira.utils.Constants;
@@ -26,6 +27,8 @@ public class DatabaseFactory {
 				return new Datastore(options);
 			case Constants.AZURE_TABLES:
 				return new Tables(options);
+			case Constants.CASSANDRA:
+				return new Cassandra(options);
 			default:
 				return null;
 		}
