@@ -129,7 +129,7 @@ public class ServiceQueue {
 	}
 	
 	/**
-	 * Used by the SRC or the TWC to announce thei presence to hegira-api component.
+	 * Used by the SRC or the TWC to announce their presence to hegira-api component.
 	 * @throws QueueException
 	 */
 	public void announcePresence() throws QueueException{

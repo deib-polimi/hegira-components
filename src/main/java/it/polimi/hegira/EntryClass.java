@@ -106,6 +106,17 @@ public class EntryClass {
 						//Telling hegira-api that we are ready to receive other commands
 						serviceQueue.announcePresence();
 						break;
+						
+					case "recover":
+						if(cli.componentType.equals("SRC")){
+							//TODO: should read status from ZooKeeper and rebuild a local status from which to migrate
+						}else if(cli.componentType.equals("TWC")){
+							//TODO: should adjust the counters for the entities correctly migrated (expected 
+							//number is piggybacked in the metamodel entity)
+						}
+						//Telling hegira-api that we are ready to receive other commands
+						serviceQueue.announcePresence();
+						break;
 					default:
 						log.debug("Received command message: "+sqm.getCommand());
 						//Telling hegira-api that we are ready to receive other commands
