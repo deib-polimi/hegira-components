@@ -238,7 +238,7 @@ public abstract class AbstractDatabase implements Runnable{
 	/**
 	 * Creates a new snapshot of the source database by considering just 
 	 * the list of tables given as input.
-	 * Notice that the previous snapshot data will be deleted.
+	 * Notice that the previous snapshot data, on ZooKeeper, will be deleted.
 	 * @param tablesList The list of tables that will be considered to create the snapshot.
 	 * @throws Exception ZK errors, interruptions, etc.
 	 */
@@ -275,6 +275,26 @@ public abstract class AbstractDatabase implements Runnable{
 		zKserver.close();
 		log.debug(Thread.currentThread().getName()+
 				" unlocked queries...");
+	}
+	
+	/**
+	 * Restores the snapshot considering the MigrationStatus stored in ZooKeeper.
+	 * @param tablesList The list of tables that will be considered to create the snapshot.
+	 * @throws Exception ZK errors, interruptions, etc.
+	 */
+	protected void restoreSnapshot(List<String> tableList) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		zKserver.lockQueries();
+		
+		for(String tbl : tableList){
+			MigrationStatus migrationStatus = zKserver.getFreshMigrationStatus(tbl, null);
+			snapshot.put(tbl, migrationStatus);
+			log.debug(Thread.currentThread().getName()+
+					" Added table "+tbl+" to snapshot");
+		}
+		
+		zKserver.unlockQueries();
+		zKserver.close();
 	}
 	
 	/**
