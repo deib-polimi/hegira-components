@@ -11,7 +11,10 @@ import org.apache.log4j.Logger;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.ConsumerCancelledException;
 import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.ShutdownSignalException;
+import com.rabbitmq.client.AMQP.Queue.PurgeOk;
 import com.rabbitmq.client.QueueingConsumer.Delivery;
 
 /**
@@ -228,5 +231,37 @@ public class TaskQueue {
 			previousQueueCheckTime = System.currentTimeMillis();
 			
 		}
+	}
+	
+	/**
+	 * Purges the task queue.
+	 * @return <b>true</b> if purged; <b>false</b> otherwise.
+	 * @throws IOException
+	 * @throws ShutdownSignalException
+	 * @throws ConsumerCancelledException
+	 * @throws InterruptedException
+	 * @throws QueueException
+	 */
+	public boolean purgeQueue() throws IOException, ShutdownSignalException, ConsumerCancelledException, InterruptedException, QueueException{
+		PurgeOk queuePurge = channel.queuePurge(TASK_QUEUE_NAME);
+		if(queuePurge!=null){
+			boolean wasNull=false;
+			if(consumer==null){
+				wasNull=true;
+				consumer = new QueueingConsumer(channel);
+				channel.basicConsume(TASK_QUEUE_NAME, false, consumer);
+			}
+			Delivery delivery = consumer.nextDelivery(50);
+			if(delivery!=null){
+				sendAck(delivery);
+				//log.debug(Thread.currentThread().getName()+
+				//		" consumed orphan");
+			}
+			//log.debug(Thread.currentThread().getName()+
+			//		" message count: "+queuePurge.getMessageCount());
+			if(wasNull)
+				consumer=null;
+		}
+		return (queuePurge != null) ?  true :  false;
 	}
 }
