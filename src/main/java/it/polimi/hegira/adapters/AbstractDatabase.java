@@ -318,6 +318,8 @@ public abstract class AbstractDatabase implements Runnable{
 		
 		State currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
 		if(currentState.equals(State.MIGRATED)){
+			log.debug(Thread.currentThread().getName() +
+					" migration status already "+currentState.name()+" for VDP: "+tableName+"/"+VDPid);
 			snapshot.put(tableName, migStatus);
 			zKserver.close();
 			zKserver=null;

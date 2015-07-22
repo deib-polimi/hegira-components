@@ -100,7 +100,7 @@ public class EntryClass {
 		        				
 		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
 		        						options_consumer);
-		        				dst.switchOverPartitioned("TWC");
+		        				dst.switchOverPartitioned("TWC",false);
 		            		}
 						
 						//Telling hegira-api that we are ready to receive other commands
