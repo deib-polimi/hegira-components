@@ -89,7 +89,7 @@ public class EntryClass {
 							options_producer.put("mode", Constants.PRODUCER);
 							
 							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
-							src.switchOverPartitioned("SRC");
+							src.switchOverPartitioned("SRC", false);
 		            		}else if(cli.componentType.equals("TWC")){
 		            			log.debug("Received command message, destined to: TWC");
 		            			HashMap<String, String> options_consumer = new HashMap<String,String>();
