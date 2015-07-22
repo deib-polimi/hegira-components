@@ -109,10 +109,27 @@ public class EntryClass {
 						
 					case "recover":
 						if(cli.componentType.equals("SRC")){
-							//TODO: should read status from ZooKeeper and rebuild a local status from which to migrate
+							//Reads the MigrationStatus from ZooKeeper and rebuilds a local status from which to start migrating
+							log.debug("Received command message, destined to: SRC");
+							HashMap<String, String> options_producer = new HashMap<String,String>();
+							options_producer.put("mode", Constants.PRODUCER);
+							
+							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
+							src.switchOverPartitioned("SRC", true);
 						}else if(cli.componentType.equals("TWC")){
-							//TODO: should adjust the counters for the entities correctly migrated (expected 
-							//number is piggybacked in the metamodel entity)
+							//shouldn't be necessary to adjust the counters for the entities correctly migrated (expected 
+							//number is piggybacked in the metamodel entity) since an already started VDP is recovered anyway
+							
+							log.debug("Received command message, destined to: TWC");
+		            			HashMap<String, String> options_consumer = new HashMap<String,String>();
+		        				options_consumer.put("mode", Constants.CONSUMER);
+		        				if(sqm.getThreads()>=1){
+		        					options_consumer.put("threads", ""+sqm.getThreads());
+		        				}
+		        				
+		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
+		        						options_consumer);
+		        				dst.switchOverPartitioned("TWC",true);
 						}
 						//Telling hegira-api that we are ready to receive other commands
 						serviceQueue.announcePresence();
