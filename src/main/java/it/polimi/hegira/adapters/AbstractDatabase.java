@@ -12,6 +12,7 @@ import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
 import it.polimi.hegira.zkWrapper.statemachine.State;
+import it.polimi.hegira.zkWrapper.statemachine.StateMachine;
 import it.polimi.hegira.utils.VDPsCounters;
 
 import java.io.IOException;
@@ -296,6 +297,18 @@ public abstract class AbstractDatabase implements Runnable{
 		
 		for(String tbl : tableList){
 			MigrationStatus migrationStatus = zKserver.getFreshMigrationStatus(tbl, null);
+			//reverting all VDPs which are UNDER_MIGRATION to NOT_MIGRATED
+			HashMap<Integer, StateMachine> vdps = migrationStatus.getVDPs();
+			Set<Integer> keys = vdps.keySet();
+			for(Integer vdpId : keys){
+				StateMachine sm = vdps.get(vdpId);
+				State currentState = sm.getCurrentState();
+				if(currentState.equals(State.UNDER_MIGRATION)){
+					migrationStatus.getVDPs().put(vdpId, new StateMachine());
+					log.debug(Thread.currentThread().getName()+
+							" reverting "+tbl+"/VDP "+vdpId+" to NOT_MIGRATED");
+				}
+			}
 			snapshot.put(tbl, migrationStatus);
 			log.debug(Thread.currentThread().getName()+
 					" Added table "+tbl+" to snapshot");
