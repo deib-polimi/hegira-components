@@ -26,9 +26,6 @@ import java.util.concurrent.Executors;
 
 import org.apache.log4j.Logger;
 
-import com.rabbitmq.client.ConsumerCancelledException;
-import com.rabbitmq.client.ShutdownSignalException;
-
 public abstract class AbstractDatabase implements Runnable{
 	//protected TaskQueue taskQueue;
 	protected ArrayList<TaskQueue> taskQueues;
@@ -203,9 +200,6 @@ public abstract class AbstractDatabase implements Runnable{
 									" creating snapshot...");
 							thiz.createSnapshot(thiz.getTableList());
 						}else{
-							log.debug(Thread.currentThread().getName()+
-									" purging task queue...");
-							thiz.purgeQueue();
 							log.debug(Thread.currentThread().getName()+
 									" recoverying snapshot...");
 							thiz.restoreSnapshot(thiz.getTableList());
@@ -422,22 +416,6 @@ public abstract class AbstractDatabase implements Runnable{
 					}
 				}
 			}
-		}
-	}
-	
-	/**
-	 * Purges the Task Queue.
-	 * Should be called by the SRC just on crash recovery.
-	 * @return <b>true</b> if the queue has been purged; <b>false</b> otherwise.
-	 */
-	private boolean purgeQueue(){
-		TaskQueue taskQueue = taskQueues.get(0);
-		try {
-			return taskQueue.purgeQueue();
-		} catch (ShutdownSignalException | ConsumerCancelledException
-				| IOException | InterruptedException | QueueException e) {
-			log.error("Couldn't purge the task queue", e);
-			return false;
 		}
 	}
 }
