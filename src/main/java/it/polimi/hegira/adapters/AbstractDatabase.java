@@ -305,6 +305,7 @@ public abstract class AbstractDatabase implements Runnable{
 				State currentState = sm.getCurrentState();
 				if(currentState.equals(State.UNDER_MIGRATION)){
 					migrationStatus.getVDPs().put(vdpId, new StateMachine());
+					zKserver.setFreshMigrationStatus(tbl, migrationStatus);
 					log.debug(Thread.currentThread().getName()+
 							" reverting "+tbl+"/VDP "+vdpId+" to NOT_MIGRATED");
 				}
