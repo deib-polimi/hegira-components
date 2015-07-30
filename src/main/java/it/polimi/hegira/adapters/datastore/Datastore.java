@@ -431,75 +431,71 @@ public class Datastore extends AbstractDatabase {
 	        for(int VDPid = 0;VDPid<=totalVDPs;VDPid++){
 	        		//announcing the migration status for the new VDP
         			try {
-        				log.debug(Thread.currentThread().getName()+
-    							" Trying to migrate kind "+kind+
-    							", VDP "+VDPid);
-        				while(!canMigrate(kind, VDPid)){
-        					log.debug(Thread.currentThread().getName()+
-        							" I currently can't migrate VDP "+VDPid);
-        					Thread.sleep(300);
-        				}
-        			} catch (Exception e1) {
-        				log.error("Error setting the initial migration status for kind: "+kind, e1);
-        				return null;
-        			}
-	        		//generating ids from the VDP
-	        		ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
-	        		if(VDPid == 0){
-	        			if(ids.get(0) == 0)
-	        				ids.remove(0);
-	        		}
-	        		
-	        		log.debug(Thread.currentThread().getName() +
-	        				" Getting entities for VDP: "+kind+"/"+VDPid);
-	        		//getting entities from the Datastore
-	        		Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
-	        		
-	        		//getting the effective #entities to be piggybacked with every Metamodel entity
-	        		int actualEntitiesNumber = result.size();
-	        		
-	        		//Mapping entities to the Metamodel and sending it to the queue.
-	        		for(Entity entity : result.values()){
-					DatastoreModel dsModel = new DatastoreModel(entity);
-					dsModel.setAncestorString(entity.getKey().toString());
-					DatastoreTransformer dt = new DatastoreTransformer();
-					Metamodel myModel = dt.toMyModel(dsModel);
-					//Piggybacking the actual number of entities the TWC should expect.
-					HashMap<String, Integer> counters = new HashMap<String, Integer>();
-					counters.put(entity.getKind(), actualEntitiesNumber);
-					myModel.setActualVdpSize(counters);
-					
-					if(myModel!=null){
-						try {
-							taskQueues.get(thread_id).publish(serializer.serialize(myModel));
-							i++;
-						} catch (QueueException | TException e) {
-							log.error("Serialization Error: ", e);
+						if(canMigrate(kind, VDPid)){
+							//generating ids from the VDP
+							ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+							if(VDPid == 0){
+								if(ids.get(0) == 0)
+									ids.remove(0);
+							}
+							
+							log.debug(Thread.currentThread().getName() +
+									" Getting entities for VDP: "+kind+"/"+VDPid);
+							//getting entities from the Datastore
+							Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+							
+							//getting the effective #entities to be piggybacked with every Metamodel entity
+							int actualEntitiesNumber = result.size();
+							
+							//Mapping entities to the Metamodel and sending it to the queue.
+							for(Entity entity : result.values()){
+							DatastoreModel dsModel = new DatastoreModel(entity);
+							dsModel.setAncestorString(entity.getKey().toString());
+							DatastoreTransformer dt = new DatastoreTransformer();
+							Metamodel myModel = dt.toMyModel(dsModel);
+							//Piggybacking the actual number of entities the TWC should expect.
+							HashMap<String, Integer> counters = new HashMap<String, Integer>();
+							counters.put(entity.getKind(), actualEntitiesNumber);
+							myModel.setActualVdpSize(counters);
+							
+							if(myModel!=null){
+								try {
+									taskQueues.get(thread_id).publish(serializer.serialize(myModel));
+									i++;
+								} catch (QueueException | TException e) {
+									log.error("Serialization Error: ", e);
+								}
+							}
 						}
-					}
-				}
-	        		log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
-	        				+VDPid+": "+actualEntitiesNumber);
-	        		
-	        		//in the event that the client application requested too many ids, so that an entire VDP is empty,
-	        		//or in the case the client application has removed all entities in a VDP...
-	        		//there's no reason why that VDP should figure as "NOT_MIGRATED"
-	        		if(actualEntitiesNumber==0){
-	        			try {
-	        				while(!notifyFinishedMigration(kind, VDPid)){
-	        					log.debug(Thread.currentThread().getName()+
-	        							"I currently can't set VDP "+VDPid+" to migrated");
-	        					Thread.sleep(300);
-	        				}
+							log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
+									+VDPid+": "+actualEntitiesNumber);
+							
+							//in the event that the client application requested too many ids, so that an entire VDP is empty,
+							//or in the case the client application has removed all entities in a VDP...
+							//there's no reason why that VDP should figure as "NOT_MIGRATED"
+							if(actualEntitiesNumber==0){
+								try {
+									while(!notifyFinishedMigration(kind, VDPid)){
+										log.debug(Thread.currentThread().getName()+
+												"I currently can't set VDP "+VDPid+" to migrated");
+										Thread.sleep(300);
+									}
+							} catch (Exception e) {
+								log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+									return null;
+							}
+							}
+							
+						if(i%5000==0)
+							taskQueues.get(0).slowDownProduction();
+						} else {
+							log.info(Thread.currentThread().getName()+
+									" Skipping VDP with id "+VDPid);
+						}
 					} catch (Exception e) {
-						log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+						log.error("Error setting the initial migration status for kind: "+kind, e);
         					return null;
 					}
-	        		}
-					
-				if(i%5000==0)
-					taskQueues.get(0).slowDownProduction();
-				
 	        }
 	        //Finish all assigned vdps for this kind
 	        log.debug(Thread.currentThread().getName()+" ==> Transferred "+i+" entities of kind "+kind);

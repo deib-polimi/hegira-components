@@ -11,6 +11,8 @@ import it.polimi.hegira.zkWrapper.MigrationStatus;
 import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
+import it.polimi.hegira.zkWrapper.statemachine.State;
+import it.polimi.hegira.zkWrapper.statemachine.StateMachine;
 import it.polimi.hegira.utils.VDPsCounters;
 
 import java.io.IOException;
@@ -174,9 +176,10 @@ public abstract class AbstractDatabase implements Runnable{
 	 * Performs the switchOver in a virtually partitioned way.
 	 * The TWC part is unchanged with respect to the switchOver method.
 	 * @param component The name of the component (i.e., SRC or TWC)
+	 * @param recover <b>true</b> if the migration should be recovered from the last successfully migrated VDP; <b>false</b> otherwise
 	 * @return
 	 */
-	public final boolean switchOverPartitioned(String component){
+	public final boolean switchOverPartitioned(String component, final boolean recover){
 		final AbstractDatabase thiz = this;
 		behavior = "partitioned";
 		try {
@@ -192,9 +195,15 @@ public abstract class AbstractDatabase implements Runnable{
 					//thread_id=0;
 					try {
 						thiz.connect();
-						log.debug(Thread.currentThread().getName()+
-								" creating snapshot...");
-						thiz.createSnapshot(thiz.getTableList());
+						if(!recover){
+							log.debug(Thread.currentThread().getName()+
+									" creating snapshot...");
+							thiz.createSnapshot(thiz.getTableList());
+						}else{
+							log.debug(Thread.currentThread().getName()+
+									" recoverying snapshot...");
+							thiz.restoreSnapshot(thiz.getTableList());
+						}
 						thiz.toMyModelPartitioned(thiz);
 					} catch (ConnectException e) {
 						e.printStackTrace();
@@ -238,7 +247,7 @@ public abstract class AbstractDatabase implements Runnable{
 	/**
 	 * Creates a new snapshot of the source database by considering just 
 	 * the list of tables given as input.
-	 * Notice that the previous snapshot data will be deleted.
+	 * Notice that the previous snapshot data, on ZooKeeper, will be deleted.
 	 * @param tablesList The list of tables that will be considered to create the snapshot.
 	 * @throws Exception ZK errors, interruptions, etc.
 	 */
@@ -278,6 +287,38 @@ public abstract class AbstractDatabase implements Runnable{
 	}
 	
 	/**
+	 * Restores the snapshot considering the MigrationStatus stored in ZooKeeper.
+	 * @param tablesList The list of tables that will be considered to create the snapshot.
+	 * @throws Exception ZK errors, interruptions, etc.
+	 */
+	protected void restoreSnapshot(List<String> tableList) throws Exception{
+		ZKserver zKserver = new ZKserver(connectString);
+		zKserver.lockQueries();
+		
+		for(String tbl : tableList){
+			MigrationStatus migrationStatus = zKserver.getFreshMigrationStatus(tbl, null);
+			//reverting all VDPs which are UNDER_MIGRATION to NOT_MIGRATED
+			HashMap<Integer, StateMachine> vdps = migrationStatus.getVDPs();
+			Set<Integer> keys = vdps.keySet();
+			for(Integer vdpId : keys){
+				StateMachine sm = vdps.get(vdpId);
+				State currentState = sm.getCurrentState();
+				if(currentState.equals(State.UNDER_MIGRATION)){
+					migrationStatus.getVDPs().put(vdpId, new StateMachine());
+					log.debug(Thread.currentThread().getName()+
+							" reverting "+tbl+"/VDP "+vdpId+" to NOT_MIGRATED");
+				}
+			}
+			snapshot.put(tbl, migrationStatus);
+			log.debug(Thread.currentThread().getName()+
+					" Added table "+tbl+" to snapshot");
+		}
+		
+		zKserver.unlockQueries();
+		zKserver.close();
+	}
+	
+	/**
 	 * Tells the SRC if it is allowed to migrate a given VDP for a given table.
 	 * @param tableName The name of the table to migrate.
 	 * @param VDPid The id of the VDP to be migrated.
@@ -287,6 +328,27 @@ public abstract class AbstractDatabase implements Runnable{
 	public boolean canMigrate(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+		
+		State currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
+		if(currentState.equals(State.MIGRATED)){
+			log.debug(Thread.currentThread().getName() +
+					" migration status already "+currentState.name()+" for VDP: "+tableName+"/"+VDPid);
+			snapshot.put(tableName, migStatus);
+			zKserver.close();
+			zKserver=null;
+			return false;
+		}else if(currentState.equals(State.SYNC)){
+			snapshot.put(tableName, migStatus);
+			do{
+				log.debug(Thread.currentThread().getName()+
+						" Looping until the state changes back to NOT_MIGRATED");
+				Thread.sleep(300);
+				migStatus = zKserver.getFreshMigrationStatus(tableName, null);
+				currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
+			}while(currentState.equals(State.SYNC));
+			
+		}
+		
 		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
 		zKserver.setFreshMigrationStatus(tableName, migStatus);
 		snapshot.put(tableName, migStatus);
