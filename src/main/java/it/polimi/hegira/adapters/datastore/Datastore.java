@@ -303,7 +303,9 @@ public class Datastore extends AbstractDatabase {
 		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
 		for(Integer ik : keys){
 			Key dk = KeyFactory.createKey(kind, ik.toString());
+			Key dkl = KeyFactory.createKey(kind, ik.longValue());
 			dKeys.add(dk);
+			dKeys.add(dkl);
 		}
 		//querying for the given keys
 		return connectionList.get(thread_id).ds.get(dKeys);
@@ -441,6 +443,8 @@ public class Datastore extends AbstractDatabase {
 							
 							log.debug(Thread.currentThread().getName() +
 									" Getting entities for VDP: "+kind+"/"+VDPid);
+							
+							
 							//getting entities from the Datastore
 							Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
 							
@@ -449,24 +453,24 @@ public class Datastore extends AbstractDatabase {
 							
 							//Mapping entities to the Metamodel and sending it to the queue.
 							for(Entity entity : result.values()){
-							DatastoreModel dsModel = new DatastoreModel(entity);
-							dsModel.setAncestorString(entity.getKey().toString());
-							DatastoreTransformer dt = new DatastoreTransformer();
-							Metamodel myModel = dt.toMyModel(dsModel);
-							//Piggybacking the actual number of entities the TWC should expect.
-							HashMap<String, Integer> counters = new HashMap<String, Integer>();
-							counters.put(entity.getKind(), actualEntitiesNumber);
-							myModel.setActualVdpSize(counters);
-							
-							if(myModel!=null){
-								try {
-									taskQueues.get(thread_id).publish(serializer.serialize(myModel));
-									i++;
-								} catch (QueueException | TException e) {
-									log.error("Serialization Error: ", e);
+								DatastoreModel dsModel = new DatastoreModel(entity);
+								dsModel.setAncestorString(entity.getKey().toString());
+								DatastoreTransformer dt = new DatastoreTransformer();
+								Metamodel myModel = dt.toMyModel(dsModel);
+								//Piggybacking the actual number of entities the TWC should expect.
+								HashMap<String, Integer> counters = new HashMap<String, Integer>();
+								counters.put(entity.getKind(), actualEntitiesNumber);
+								myModel.setActualVdpSize(counters);
+								
+								if(myModel!=null){
+									try {
+										taskQueues.get(thread_id).publish(serializer.serialize(myModel));
+										i++;
+									} catch (QueueException | TException e) {
+										log.error("Serialization Error: ", e);
+									}
 								}
 							}
-						}
 							log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
 									+VDPid+": "+actualEntitiesNumber);
 							
@@ -480,14 +484,14 @@ public class Datastore extends AbstractDatabase {
 												"I currently can't set VDP "+VDPid+" to migrated");
 										Thread.sleep(300);
 									}
-							} catch (Exception e) {
-								log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
-									return null;
-							}
+								} catch (Exception e) {
+									log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+										return null;
+								}
 							}
 							
-						if(i%5000==0)
-							taskQueues.get(0).slowDownProduction();
+							//if(i%5000==0)
+							//	taskQueues.get(0).slowDownProduction();
 						} else {
 							log.info(Thread.currentThread().getName()+
 									" Skipping VDP with id "+VDPid);
