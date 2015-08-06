@@ -91,7 +91,7 @@
 	<dependency>
 		<groupId>it.polimi.hegira</groupId>
 		<artifactId>zkWrapper-server</artifactId>
-		<version>0.0.6-SNAPSHOT</version>
+		<version>0.0.7-SNAPSHOT</version>
 	</dependency>
 	<dependency>
   		<groupId>com.datastax.cassandra</groupId>
