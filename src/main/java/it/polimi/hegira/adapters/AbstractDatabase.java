@@ -296,6 +296,10 @@ public abstract class AbstractDatabase implements Runnable{
 		zKserver.lockQueries();
 		
 		for(String tbl : tableList){
+			while(!zKserver.acquireLock(tbl)){
+				log.error(Thread.currentThread().getName()+
+							" Cannot acquire lock on table: "+tbl+". Retrying!");
+			}
 			MigrationStatus migrationStatus = zKserver.getFreshMigrationStatus(tbl, null);
 			//reverting all VDPs which are UNDER_MIGRATION to NOT_MIGRATED
 			HashMap<Integer, StateMachine> vdps = migrationStatus.getVDPs();
@@ -310,6 +314,8 @@ public abstract class AbstractDatabase implements Runnable{
 							" reverting "+tbl+"/VDP "+vdpId+" to NOT_MIGRATED");
 				}
 			}
+			
+			zKserver.releaseLock(tbl);
 			snapshot.put(tbl, migrationStatus);
 			log.debug(Thread.currentThread().getName()+
 					" Added table "+tbl+" to snapshot");
@@ -328,6 +334,14 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	public boolean canMigrate(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
+		
+		while(!zKserver.acquireLock(tableName)){
+			log.error(Thread.currentThread().getName()+
+						" Cannot acquire lock on table: "+tableName+". Retrying!");
+		}
+		//log.info(Thread.currentThread().getName() + 
+		//			" Got lock!");
+		
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
 		
 		State currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
@@ -351,13 +365,22 @@ public abstract class AbstractDatabase implements Runnable{
 		}
 		
 		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
-		zKserver.setFreshMigrationStatus(tableName, migStatus);
+		int retries = 0;
+		while(!zKserver.setFreshMigrationStatus(tableName, migStatus) && retries < 10){
+			log.error(Thread.currentThread().getName() + 
+					" ==> !!! Couldn't update the migration status to "+migrateVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+			Thread.sleep(100);
+			retries++;
+		}
 		snapshot.put(tableName, migStatus);
+		
+		zKserver.releaseLock(tableName);
+		
 		zKserver.close();
 		zKserver=null;
 		log.debug(Thread.currentThread().getName() +
-				" updated migration status to "+migrateVDP.name()+" for VDP: "+tableName+"/"+VDPid);
-		return migrateVDP.equals(VDPstatus.UNDER_MIGRATION) ? true : false;
+				" updated migration status to "+migStatus.getVDPstatus(VDPid).getCurrentState()+" for VDP: "+tableName+"/"+VDPid);
+		return migStatus.getVDPstatus(VDPid).getCurrentState().name().equals(VDPstatus.UNDER_MIGRATION.name()) && retries < 10 ? true : false;
 	}
 	
 	/**
@@ -369,14 +392,29 @@ public abstract class AbstractDatabase implements Runnable{
 	 */
 	protected boolean notifyFinishedMigration(String tableName, int VDPid) throws Exception{
 		ZKserver zKserver = new ZKserver(connectString);
+		
+		while(!zKserver.acquireLock(tableName)){
+			log.error(Thread.currentThread().getName()+
+						" Cannot acquire lock on table: "+tableName+". Retrying!");
+		}
+		//log.info(Thread.currentThread().getName() + 
+		//			" Got lock!");
+		
 		MigrationStatus migStatus = zKserver.getFreshMigrationStatus(tableName, null);
 		VDPstatus migratedVDP = migStatus.finish_migrateVDP(VDPid);
-		zKserver.setFreshMigrationStatus(tableName, migStatus);
+		int retries = 0;
+		while(!zKserver.setFreshMigrationStatus(tableName, migStatus) && retries < 10){
+			log.error(Thread.currentThread().getName() + 
+					" ==> !!! Couldn't update the migration status to "+migratedVDP.name()+" for VDP: "+tableName+"/"+VDPid);
+			Thread.sleep(100);
+			retries++;
+		}
+		zKserver.releaseLock(tableName);
 		zKserver.close();
 		zKserver=null;
 		log.debug(Thread.currentThread().getName() +
 				" updated migration status to "+migratedVDP.name()+" for VDP: "+tableName+"/"+VDPid);
-		return migratedVDP.equals(VDPstatus.MIGRATED) ? true : false;
+		return migStatus.getVDPstatus(VDPid).getCurrentState().name().equals(VDPstatus.MIGRATED.name()) && retries < 10 ? true : false;
 	}
 	
 	/**
