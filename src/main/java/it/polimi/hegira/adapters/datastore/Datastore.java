@@ -21,6 +21,7 @@ import com.google.appengine.api.datastore.Entities;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.google.appengine.api.datastore.KeyRange;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.QueryResultList;
@@ -312,6 +313,23 @@ public class Datastore extends AbstractDatabase {
 	}
 	
 	/**
+	 * Uses Datastore SDK's KeyRange class to efficiently get a range of entities.
+	 * @param start The id of the first entity in the range.
+	 * @param end The id of the last entity in the range.
+	 * @param kind The kind of the entities to retrieve.
+	 * @return The query result, i.e. the entities associated with the KeyRange.
+	 */
+	private Map<Key,Entity> getEntitiesByKeyRange(long start, long end, String kind){
+		int thread_id = 0;
+		if(THREADS_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		//building Datastore keys
+		KeyRange dKeys = new KeyRange(null, kind, start, end);
+		//querying for the given keys
+		return connectionList.get(thread_id).ds.get(dKeys);
+	}
+	
+	/**
     * Query for a given entity type
     * @param ds The datastore object to connect to the actual datastore
     * @param kind The kind used for the retrieval
@@ -435,10 +453,18 @@ public class Datastore extends AbstractDatabase {
         			try {
 						if(canMigrate(kind, VDPid)){
 							//generating ids from the VDP
-							ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+							/*ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
 							if(VDPid == 0){
 								if(ids.get(0) == 0)
 									ids.remove(0);
+							}*/
+							
+							int[] vdpExtremes = VdpUtils.getVdpExtremes(VDPid, maxSeq, vdpSize);
+							long start = vdpExtremes[0];
+							long end = vdpExtremes[1];
+							if(VDPid == 0){
+								if(start == 0)
+									start = 1;
 							}
 							
 							log.debug(Thread.currentThread().getName() +
@@ -446,7 +472,8 @@ public class Datastore extends AbstractDatabase {
 							
 							
 							//getting entities from the Datastore
-							Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+							//Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+							Map<Key, Entity> result = datastore.getEntitiesByKeyRange(start, end, kind);
 							
 							//getting the effective #entities to be piggybacked with every Metamodel entity
 							int actualEntitiesNumber = result.size();
