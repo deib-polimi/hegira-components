@@ -448,7 +448,7 @@ public class Datastore extends AbstractDatabase {
 	        int totalVDPs = snapshot.get(kind).getTotalVDPs(vdpSize);
 	        
 	        //extracting entities per each VDP
-	        for(int VDPid = 0;VDPid<=totalVDPs;VDPid++){
+	        for(int VDPid = 0;VDPid<totalVDPs;VDPid++){
 	        		//announcing the migration status for the new VDP
         			try {
 						if(canMigrate(kind, VDPid)){
@@ -473,7 +473,11 @@ public class Datastore extends AbstractDatabase {
 							
 							//getting entities from the Datastore
 							//Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
-							Map<Key, Entity> result = datastore.getEntitiesByKeyRange(start, end, kind);
+							Map<Key, Entity> result;
+							if(end>0)
+								result = datastore.getEntitiesByKeyRange(start, end, kind);
+							else
+								result = new HashMap<Key, Entity>();
 							
 							//getting the effective #entities to be piggybacked with every Metamodel entity
 							int actualEntitiesNumber = result.size();
