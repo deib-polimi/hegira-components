@@ -286,7 +286,7 @@ public abstract class AbstractDatabase implements Runnable{
 				int seqNr = zKclient.getCurrentSeqNr(tbl);
 				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
 				//automatically setting the VDPStatus to NOT_MIGRATED
-				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs-1);
+				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
 				boolean setted = zKserver.setFreshMigrationStatus(tbl, status);
 				snapshot.put(tbl, status);
 				log.debug(Thread.currentThread().getName()+
