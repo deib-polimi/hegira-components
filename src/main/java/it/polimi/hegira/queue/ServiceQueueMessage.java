@@ -18,6 +18,7 @@ public class ServiceQueueMessage implements Serializable{
 	private List<String> destination;
 	private int threads;
 	private String command;
+	private int SRTs_NO;
 	
 	public String getCommand() {
 		return command;
@@ -42,5 +43,11 @@ public class ServiceQueueMessage implements Serializable{
 	}
 	public void setThreads(int threads) {
 		this.threads = threads;
+	}
+	public int getSRTs_NO() {
+		return SRTs_NO;
+	}
+	public void setSRTs_NO(int sRTs_NO) {
+		SRTs_NO = sRTs_NO;
 	}
 }

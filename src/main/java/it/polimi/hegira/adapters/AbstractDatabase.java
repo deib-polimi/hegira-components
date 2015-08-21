@@ -30,7 +30,7 @@ public abstract class AbstractDatabase implements Runnable{
 	//protected TaskQueue taskQueue;
 	protected ArrayList<TaskQueue> taskQueues;
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
-	protected int TWTs_NO = 0;
+	protected int TWTs_NO = 0, SRTs_NO = 1;
 	//protected int thread_id;
 	
 	//String tableName
@@ -65,6 +65,10 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
 					snapshot = new HashMap<String, MigrationStatus>();
+					int srts_no = 10;
+					if(options.get("SRTs_NO")!=null)
+						srts_no = Integer.parseInt(options.get("SRTs_NO"));
+					this.SRTs_NO = srts_no;
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
@@ -211,9 +215,7 @@ public abstract class AbstractDatabase implements Runnable{
 			} 
 			
 			//parallel data extraction
-			int threads_no = 8;
-			
-			for(int i=0; i<threads_no;i++){
+			for(int i=0; i<SRTs_NO;i++){
 				(new Thread() {
 					@Override public void run() {
 						//thread_id=0;
