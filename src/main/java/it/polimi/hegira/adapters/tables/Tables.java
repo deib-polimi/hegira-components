@@ -511,8 +511,8 @@ public class Tables extends AbstractDatabase {
 							return null;
 						}
 						count++;
-						if(count%100==0)
-							log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
+						//if(count%100==0)
+							//log.debug(Thread.currentThread().getName()+" Inserted "+count+" entities");
 					}
 					
 					taskQueues.get(thread_id).sendAck(delivery);

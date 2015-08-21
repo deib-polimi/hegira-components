@@ -529,12 +529,12 @@ public class Datastore extends AbstractDatabase {
 								//if(i%5000==0)
 								//	taskQueues.get(0).slowDownProduction();
 							} else {
-								log.info(Thread.currentThread().getName()+
-										" Skipping VDP with id "+VDPid);
+								//log.debug(Thread.currentThread().getName()+
+								//		" Skipping VDP with id "+VDPid);
 							}
         					}else{
-        						log.info(Thread.currentThread().getName()+
-										" Pre-Skipping VDP with id "+VDPid);
+        						//log.debug(Thread.currentThread().getName()+
+							//			" Pre-Skipping VDP with id "+VDPid);
         					}
 					} catch (Exception e) {
 						log.error(Thread.currentThread().getName() +
