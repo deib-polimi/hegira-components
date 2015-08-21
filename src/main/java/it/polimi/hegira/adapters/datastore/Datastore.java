@@ -64,9 +64,9 @@ public class Datastore extends AbstractDatabase {
 	
 	public Datastore(Map<String, String> options) {
 		super(options);
-		if(THREADS_NO>0){
-			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
-			for(int i=0;i<THREADS_NO;i++)
+		if(TWTs_NO>0){
+			connectionList = new ArrayList<ConnectionObject>(TWTs_NO);
+			for(int i=0;i<TWTs_NO;i++)
 				connectionList.add(new ConnectionObject());
 		}else{
 			connectionList = new ArrayList<ConnectionObject>(1);
@@ -84,10 +84,10 @@ public class Datastore extends AbstractDatabase {
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
 		long k = 0;
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		while(true){
-			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+" THREADS_NO: "+THREADS_NO);
+			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+" TWTs_NO: "+TWTs_NO);
 			
 			try {
 				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery(2000);
@@ -216,8 +216,8 @@ public class Datastore extends AbstractDatabase {
 	@Override
 	public void connect() throws ConnectException {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		if(!isConnected()){
 			String username = PropertiesManager.getCredentials(Constants.DATASTORE_USERNAME);
 			String password = PropertiesManager.getCredentials(Constants.DATASTORE_PASSWORD);
@@ -251,8 +251,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	public boolean isConnected(){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		try{
 			return (connectionList.get(thread_id).installer==null || 
 					connectionList.get(thread_id).ds==null) ? false : true;
@@ -264,8 +264,8 @@ public class Datastore extends AbstractDatabase {
 	@Override
 	public void disconnect() {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		if(isConnected()){
 			if(connectionList.get(thread_id).installer!=null)
 				connectionList.get(thread_id).installer.uninstall();
@@ -283,8 +283,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	private void putBatch(List<Entity> batch){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		boolean proof = true;
 		while(proof){
 			try{
@@ -298,8 +298,8 @@ public class Datastore extends AbstractDatabase {
 	
 	private Map<Key,Entity> getEntitiesByKeys(List<Integer> keys, String kind){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		//building Datastore keys
 		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
 		for(Integer ik : keys){
@@ -321,8 +321,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	private Map<Key,Entity> getEntitiesByKeyRange(long start, long end, String kind){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		//building Datastore keys
 		KeyRange dKeys = new KeyRange(null, kind, start, end);
 		//querying for the given keys
@@ -337,8 +337,8 @@ public class Datastore extends AbstractDatabase {
     */
    private Iterable<Entity> getEntitiesByKind(String kind){
 	   int thread_id = 0;
-	   if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+	   if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
    		Query q = new Query(kind);
    		PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
    		return pq.asIterable();
@@ -355,8 +355,8 @@ public class Datastore extends AbstractDatabase {
    		Cursor cursor, int pageSize){
 	   
 	   int thread_id = 0;
-	   if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+	   if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
    		boolean proof = true;
    		QueryResultList<Entity> results = null;
 	   	/**
@@ -389,8 +389,8 @@ public class Datastore extends AbstractDatabase {
     */
    private Iterable<Entity> getDescentents(Key ancestorKey){
 	   int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 	    	Query q = new Query().setAncestor(ancestorKey);
 	    	PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
 	    	return pq.asIterable();
@@ -402,8 +402,8 @@ public class Datastore extends AbstractDatabase {
     */
    public List<String> getAllKinds(){
 	   int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 	   	Iterable<Entity> results = connectionList.get(thread_id).ds.prepare(new Query(Entities.KIND_METADATA_KIND)).asIterable();
 	   	//list containing kinds of the root entities
 	   	ArrayList<String> kinds = new ArrayList<String>();

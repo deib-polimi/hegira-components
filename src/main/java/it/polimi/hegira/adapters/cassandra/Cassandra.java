@@ -72,10 +72,10 @@ public class Cassandra extends AbstractDatabase {
 	 */
 	public Cassandra(Map<String, String> options){
 		super(options);
-		if(THREADS_NO>0){
-			connectionList = Collections.synchronizedList(new  ArrayList<ConnectionObject>(THREADS_NO));
+		if(TWTs_NO>0){
+			connectionList = Collections.synchronizedList(new  ArrayList<ConnectionObject>(TWTs_NO));
 			//the creation of empty objects is needed to execute the method isConnected()
-			for(int i=0;i<THREADS_NO;i++)
+			for(int i=0;i<TWTs_NO;i++)
 				connectionList.add(new ConnectionObject());
 		}else{
 			connectionList = Collections.synchronizedList(new ArrayList<ConnectionObject>(1));
@@ -86,8 +86,8 @@ public class Cassandra extends AbstractDatabase {
 	@Override
 	public void connect() throws ConnectException {
 		int thread_id=0;
-		if(THREADS_NO!=0)
-			thread_id=(int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id=(int) (Thread.currentThread().getId()%TWTs_NO);
 		
 		if(!isConnected()){
 			
@@ -121,8 +121,8 @@ public class Cassandra extends AbstractDatabase {
 	 */
 	public boolean isConnected(){
 		int thread_id=0;
-		if(THREADS_NO!=0)
-			thread_id=(int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id=(int) (Thread.currentThread().getId()%TWTs_NO);
 		try{
 			return (connectionList.get(thread_id).session==null) ? false : true;
 		}catch(IndexOutOfBoundsException e){
@@ -133,8 +133,8 @@ public class Cassandra extends AbstractDatabase {
 	@Override
 	public void disconnect() {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		if(isConnected()){
 			connectionList.get(thread_id).session.close();
 			connectionList.get(thread_id).session = null;
@@ -147,8 +147,8 @@ public class Cassandra extends AbstractDatabase {
 	@Override
 	protected Metamodel toMyModel(AbstractDatabase model) {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		
 		//Create a new instance of the Thrift Serializer
         TSerializer serializer = new TSerializer(new TBinaryProtocol.Factory());
@@ -429,8 +429,8 @@ public class Cassandra extends AbstractDatabase {
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
 		//retrieve thread number
 		int thread_id=0;
-		if(THREADS_NO!=0){
-			thread_id=(int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0){
+			thread_id=(int) (Thread.currentThread().getId()%TWTs_NO);
 		}
 		//instantiate the cassandra transformer
 		//the consistency level is not needed. Entity inserted with eventual consistency
@@ -440,7 +440,7 @@ public class Cassandra extends AbstractDatabase {
 		
 		while(true){
 			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+
-					" THREADS_NO: "+THREADS_NO);
+					" TWTs_NO: "+TWTs_NO);
 			try{
 				//extract from the task queue
 				Delivery delivery=taskQueues.get(thread_id).getConsumer().nextDelivery();

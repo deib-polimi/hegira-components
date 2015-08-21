@@ -30,7 +30,7 @@ public abstract class AbstractDatabase implements Runnable{
 	//protected TaskQueue taskQueue;
 	protected ArrayList<TaskQueue> taskQueues;
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
-	protected int THREADS_NO = 0;
+	protected int TWTs_NO = 0;
 	//protected int thread_id;
 	
 	//String tableName
@@ -73,7 +73,7 @@ public abstract class AbstractDatabase implements Runnable{
 					
 					taskQueues=new ArrayList<TaskQueue>(threads);
 
-					this.THREADS_NO=threads;
+					this.TWTs_NO=threads;
 					for(int i=0;i<threads;i++)
 						taskQueues.add(new TaskQueue(options.get("mode"), 
 							Integer.parseInt(options.get("threads")), 
@@ -161,9 +161,9 @@ public abstract class AbstractDatabase implements Runnable{
 			}).start();
 		}else if(component.equals("TWC")){
 			//executing the consumers
-			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
-			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
-			for(int i=0;i<thiz.THREADS_NO;i++){
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.TWTs_NO);
+			for(int i=0;i<thiz.TWTs_NO;i++){
 				//thread_id=i;
 				executor.execute(thiz);
 			}
@@ -232,9 +232,9 @@ public abstract class AbstractDatabase implements Runnable{
 			}
 		}else if(component.equals("TWC")){
 			//executing the consumers
-			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
-			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
-			for(int i=0;i<thiz.THREADS_NO;i++){
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.TWTs_NO);
+			for(int i=0;i<thiz.TWTs_NO;i++){
 				//thread_id=i;
 				executor.execute(thiz);
 			}
