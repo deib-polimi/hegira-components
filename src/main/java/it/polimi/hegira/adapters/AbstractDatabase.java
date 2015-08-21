@@ -66,7 +66,7 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
 					snapshot = new ConcurrentHashMap<String, MigrationStatus>();
-					int srts_no = 10;
+					int srts_no = 8;
 					if(options.get("SRTs_NO")!=null)
 						srts_no = Integer.parseInt(options.get("SRTs_NO"));
 					this.SRTs_NO = srts_no;
