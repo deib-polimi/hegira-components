@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,7 +36,7 @@ public abstract class AbstractDatabase implements Runnable{
 	
 	//String tableName
 	//MigrationStatus the migration status for that table
-	protected HashMap<String, MigrationStatus> snapshot;
+	protected ConcurrentHashMap<String, MigrationStatus> snapshot;
 	protected int vdpSize;
 	String connectString = PropertiesManager.getZooKeeperConnectString();
 	//ugly but for prototyping...
@@ -64,7 +65,7 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues=new ArrayList<TaskQueue>(1);
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
-					snapshot = new HashMap<String, MigrationStatus>();
+					snapshot = new ConcurrentHashMap<String, MigrationStatus>();
 					int srts_no = 10;
 					if(options.get("SRTs_NO")!=null)
 						srts_no = Integer.parseInt(options.get("SRTs_NO"));
