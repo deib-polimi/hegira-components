@@ -235,7 +235,8 @@ public abstract class AbstractDatabase implements Runnable{
 			}
 		}else if(component.equals("TWC")){
 			//executing the consumers
-			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO);
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO,
+					new TWTFactory());
 			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.TWTs_NO);
 			for(int i=0;i<thiz.TWTs_NO;i++){
 				//thread_id=i;
