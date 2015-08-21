@@ -190,30 +190,46 @@ public abstract class AbstractDatabase implements Runnable{
 		}
 		
 		if(component.equals("SRC")){
-			(new Thread() {
-				@Override public void run() {
-					//thread_id=0;
-					try {
-						thiz.connect();
-						if(!recover){
-							log.debug(Thread.currentThread().getName()+
-									" creating snapshot...");
-							thiz.createSnapshot(thiz.getTableList());
-						}else{
-							log.debug(Thread.currentThread().getName()+
-									" recoverying snapshot...");
-							thiz.restoreSnapshot(thiz.getTableList());
-						}
-						thiz.toMyModelPartitioned(thiz);
-					} catch (ConnectException e) {
-						e.printStackTrace();
-					} catch (Exception e) {
-						e.printStackTrace();
-					} finally{
-						thiz.disconnect();
-					}     
+			//Creating the snapshot
+			try {
+				thiz.connect();
+				if(!recover){
+					log.debug(Thread.currentThread().getName()+
+							" creating snapshot...");
+					thiz.createSnapshot(thiz.getTableList());
+				}else{
+					log.debug(Thread.currentThread().getName()+
+							" recoverying snapshot...");
+					thiz.restoreSnapshot(thiz.getTableList());
 				}
-			}).start();
+			} catch (ConnectException e) {
+				e.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
+			} finally{
+				thiz.disconnect();
+			} 
+			
+			//parallel data extraction
+			int threads_no = 8;
+			
+			for(int i=0; i<threads_no;i++){
+				(new Thread() {
+					@Override public void run() {
+						//thread_id=0;
+						try {
+							thiz.connect();
+							thiz.toMyModelPartitioned(thiz);
+						} catch (ConnectException e) {
+							e.printStackTrace();
+						} catch (Exception e) {
+							e.printStackTrace();
+						} finally{
+							thiz.disconnect();
+						}     
+					}
+				}).start();
+			}
 		}else if(component.equals("TWC")){
 			//executing the consumers
 			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
@@ -268,7 +284,7 @@ public abstract class AbstractDatabase implements Runnable{
 				int seqNr = zKclient.getCurrentSeqNr(tbl);
 				int totalVDPs = VdpUtils.getTotalVDPs(seqNr, vdpSize);
 				//automatically setting the VDPStatus to NOT_MIGRATED
-				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs);
+				MigrationStatus status = new MigrationStatus(seqNr, totalVDPs-1);
 				boolean setted = zKserver.setFreshMigrationStatus(tbl, status);
 				snapshot.put(tbl, status);
 				log.debug(Thread.currentThread().getName()+
@@ -336,8 +352,8 @@ public abstract class AbstractDatabase implements Runnable{
 		ZKserver zKserver = new ZKserver(connectString);
 		
 		while(!zKserver.acquireLock(tableName)){
-			log.error(Thread.currentThread().getName()+
-						" Cannot acquire lock on table: "+tableName+". Retrying!");
+			//log.error(Thread.currentThread().getName()+
+			//			" Cannot acquire lock on table: "+tableName+". Retrying!");
 		}
 		//log.info(Thread.currentThread().getName() + 
 		//			" Got lock!");
@@ -362,6 +378,12 @@ public abstract class AbstractDatabase implements Runnable{
 				currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
 			}while(currentState.equals(State.SYNC));
 			
+		} else if(currentState.equals(State.UNDER_MIGRATION)){
+			snapshot.put(tableName, migStatus);
+			zKserver.releaseLock(tableName);
+			zKserver.close();
+			zKserver=null;
+			return false;
 		}
 		
 		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
@@ -394,8 +416,8 @@ public abstract class AbstractDatabase implements Runnable{
 		ZKserver zKserver = new ZKserver(connectString);
 		
 		while(!zKserver.acquireLock(tableName)){
-			log.error(Thread.currentThread().getName()+
-						" Cannot acquire lock on table: "+tableName+". Retrying!");
+			//log.error(Thread.currentThread().getName()+
+			//			" Cannot acquire lock on table: "+tableName+". Retrying!");
 		}
 		//log.info(Thread.currentThread().getName() + 
 		//			" Got lock!");

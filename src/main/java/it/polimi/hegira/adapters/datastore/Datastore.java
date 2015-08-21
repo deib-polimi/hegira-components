@@ -498,7 +498,8 @@ public class Datastore extends AbstractDatabase {
 										taskQueues.get(thread_id).publish(serializer.serialize(myModel));
 										i++;
 									} catch (QueueException | TException e) {
-										log.error("Serialization Error: ", e);
+										log.error(Thread.currentThread().getName() +
+												" Serialization Error: ", e);
 									}
 								}
 							}
@@ -512,11 +513,12 @@ public class Datastore extends AbstractDatabase {
 								try {
 									while(!notifyFinishedMigration(kind, VDPid)){
 										log.debug(Thread.currentThread().getName()+
-												"I currently can't set VDP "+VDPid+" to migrated");
+												" I currently can't set VDP "+VDPid+" to migrated");
 										Thread.sleep(300);
 									}
 								} catch (Exception e) {
-									log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+									log.error(Thread.currentThread().getName() +
+											" Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
 										return null;
 								}
 							}
@@ -528,7 +530,8 @@ public class Datastore extends AbstractDatabase {
 									" Skipping VDP with id "+VDPid);
 						}
 					} catch (Exception e) {
-						log.error("Error setting the initial migration status for kind: "+kind, e);
+						log.error(Thread.currentThread().getName() +
+								" Error setting the initial migration status for kind: "+kind, e);
         					return null;
 					}
 	        }
