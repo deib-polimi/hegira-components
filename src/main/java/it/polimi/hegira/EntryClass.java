@@ -63,6 +63,8 @@ public class EntryClass {
 							log.debug("Received command message, destined to: SRC");
 							HashMap<String, String> options_producer = new HashMap<String,String>();
 							options_producer.put("mode", Constants.PRODUCER);
+							if(sqm.getSRTs_NO()>=1)
+								options_producer.put("SRTs_NO", ""+sqm.getSRTs_NO());
 							
 							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
 							src.switchOver("SRC");

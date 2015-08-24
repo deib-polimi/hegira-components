@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,12 +31,12 @@ public abstract class AbstractDatabase implements Runnable{
 	//protected TaskQueue taskQueue;
 	protected ArrayList<TaskQueue> taskQueues;
 	private transient Logger log = Logger.getLogger(AbstractDatabase.class);
-	protected int THREADS_NO = 0;
+	protected int TWTs_NO = 0, SRTs_NO = 1;
 	//protected int thread_id;
 	
 	//String tableName
 	//MigrationStatus the migration status for that table
-	protected HashMap<String, MigrationStatus> snapshot;
+	protected ConcurrentHashMap<String, MigrationStatus> snapshot;
 	protected int vdpSize;
 	String connectString = PropertiesManager.getZooKeeperConnectString();
 	//ugly but for prototyping...
@@ -64,7 +65,11 @@ public abstract class AbstractDatabase implements Runnable{
 					taskQueues=new ArrayList<TaskQueue>(1);
 					taskQueues.add(new TaskQueue(options.get("mode"), 0, 
 							options.get("queue-address")));
-					snapshot = new HashMap<String, MigrationStatus>();
+					snapshot = new ConcurrentHashMap<String, MigrationStatus>();
+					int srts_no = 8;
+					if(options.get("SRTs_NO")!=null)
+						srts_no = Integer.parseInt(options.get("SRTs_NO"));
+					this.SRTs_NO = srts_no;
 					break;
 				case Constants.CONSUMER:
 					int threads=10;
@@ -73,7 +78,7 @@ public abstract class AbstractDatabase implements Runnable{
 					
 					taskQueues=new ArrayList<TaskQueue>(threads);
 
-					this.THREADS_NO=threads;
+					this.TWTs_NO=threads;
 					for(int i=0;i<threads;i++)
 						taskQueues.add(new TaskQueue(options.get("mode"), 
 							Integer.parseInt(options.get("threads")), 
@@ -161,9 +166,9 @@ public abstract class AbstractDatabase implements Runnable{
 			}).start();
 		}else if(component.equals("TWC")){
 			//executing the consumers
-			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
-			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
-			for(int i=0;i<thiz.THREADS_NO;i++){
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO);
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.TWTs_NO);
+			for(int i=0;i<thiz.TWTs_NO;i++){
 				//thread_id=i;
 				executor.execute(thiz);
 			}
@@ -190,35 +195,50 @@ public abstract class AbstractDatabase implements Runnable{
 		}
 		
 		if(component.equals("SRC")){
-			(new Thread() {
-				@Override public void run() {
-					//thread_id=0;
-					try {
-						thiz.connect();
-						if(!recover){
-							log.debug(Thread.currentThread().getName()+
-									" creating snapshot...");
-							thiz.createSnapshot(thiz.getTableList());
-						}else{
-							log.debug(Thread.currentThread().getName()+
-									" recoverying snapshot...");
-							thiz.restoreSnapshot(thiz.getTableList());
-						}
-						thiz.toMyModelPartitioned(thiz);
-					} catch (ConnectException e) {
-						e.printStackTrace();
-					} catch (Exception e) {
-						e.printStackTrace();
-					} finally{
-						thiz.disconnect();
-					}     
+			//Creating the snapshot
+			try {
+				thiz.connect();
+				if(!recover){
+					log.debug(Thread.currentThread().getName()+
+							" creating snapshot...");
+					thiz.createSnapshot(thiz.getTableList());
+				}else{
+					log.debug(Thread.currentThread().getName()+
+							" recoverying snapshot...");
+					thiz.restoreSnapshot(thiz.getTableList());
 				}
-			}).start();
+			} catch (ConnectException e) {
+				e.printStackTrace();
+			} catch (Exception e) {
+				e.printStackTrace();
+			} finally{
+				thiz.disconnect();
+			} 
+			
+			//parallel data extraction
+			for(int i=0; i<SRTs_NO;i++){
+				(new Thread() {
+					@Override public void run() {
+						//thread_id=0;
+						try {
+							thiz.connect();
+							thiz.toMyModelPartitioned(thiz);
+						} catch (ConnectException e) {
+							e.printStackTrace();
+						} catch (Exception e) {
+							e.printStackTrace();
+						} finally{
+							thiz.disconnect();
+						}     
+					}
+				}).start();
+			}
 		}else if(component.equals("TWC")){
 			//executing the consumers
-			ExecutorService executor = Executors.newFixedThreadPool(thiz.THREADS_NO);
-			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.THREADS_NO);
-			for(int i=0;i<thiz.THREADS_NO;i++){
+			ExecutorService executor = Executors.newFixedThreadPool(thiz.TWTs_NO,
+					new TWTFactory());
+			log.debug("EXECUTOR switchover No. Consumer threads: "+thiz.TWTs_NO);
+			for(int i=0;i<thiz.TWTs_NO;i++){
 				//thread_id=i;
 				executor.execute(thiz);
 			}
@@ -336,8 +356,8 @@ public abstract class AbstractDatabase implements Runnable{
 		ZKserver zKserver = new ZKserver(connectString);
 		
 		while(!zKserver.acquireLock(tableName)){
-			log.error(Thread.currentThread().getName()+
-						" Cannot acquire lock on table: "+tableName+". Retrying!");
+			//log.error(Thread.currentThread().getName()+
+			//			" Cannot acquire lock on table: "+tableName+". Retrying!");
 		}
 		//log.info(Thread.currentThread().getName() + 
 		//			" Got lock!");
@@ -362,6 +382,12 @@ public abstract class AbstractDatabase implements Runnable{
 				currentState = migStatus.getVDPstatus(VDPid).getCurrentState();
 			}while(currentState.equals(State.SYNC));
 			
+		} else if(currentState.equals(State.UNDER_MIGRATION)){
+			snapshot.put(tableName, migStatus);
+			zKserver.releaseLock(tableName);
+			zKserver.close();
+			zKserver=null;
+			return false;
 		}
 		
 		VDPstatus migrateVDP = migStatus.migrateVDP(VDPid);
@@ -394,8 +420,8 @@ public abstract class AbstractDatabase implements Runnable{
 		ZKserver zKserver = new ZKserver(connectString);
 		
 		while(!zKserver.acquireLock(tableName)){
-			log.error(Thread.currentThread().getName()+
-						" Cannot acquire lock on table: "+tableName+". Retrying!");
+			//log.error(Thread.currentThread().getName()+
+			//			" Cannot acquire lock on table: "+tableName+". Retrying!");
 		}
 		//log.info(Thread.currentThread().getName() + 
 		//			" Got lock!");

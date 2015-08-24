@@ -46,6 +46,7 @@ import it.polimi.hegira.vdp.VdpUtils;
 import it.polimi.hegira.zkWrapper.MigrationStatus.VDPstatus;
 import it.polimi.hegira.zkWrapper.ZKclient;
 import it.polimi.hegira.zkWrapper.ZKserver;
+import it.polimi.hegira.zkWrapper.statemachine.State;
 
 public class Datastore extends AbstractDatabase {
 	private static Logger log = Logger.getLogger(Datastore.class);
@@ -64,9 +65,9 @@ public class Datastore extends AbstractDatabase {
 	
 	public Datastore(Map<String, String> options) {
 		super(options);
-		if(THREADS_NO>0){
-			connectionList = new ArrayList<ConnectionObject>(THREADS_NO);
-			for(int i=0;i<THREADS_NO;i++)
+		if(TWTs_NO>0){
+			connectionList = new ArrayList<ConnectionObject>(TWTs_NO);
+			for(int i=0;i<TWTs_NO;i++)
 				connectionList.add(new ConnectionObject());
 		}else{
 			connectionList = new ArrayList<ConnectionObject>(1);
@@ -84,10 +85,10 @@ public class Datastore extends AbstractDatabase {
 		TDeserializer deserializer = new TDeserializer(new TBinaryProtocol.Factory());
 		long k = 0;
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		while(true){
-			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+" THREADS_NO: "+THREADS_NO);
+			log.debug(Thread.currentThread().getName()+" Extracting from the taskQueue"+thread_id+" TWTs_NO: "+TWTs_NO);
 			
 			try {
 				Delivery delivery = taskQueues.get(thread_id).getConsumer().nextDelivery(2000);
@@ -216,8 +217,8 @@ public class Datastore extends AbstractDatabase {
 	@Override
 	public void connect() throws ConnectException {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		if(!isConnected()){
 			String username = PropertiesManager.getCredentials(Constants.DATASTORE_USERNAME);
 			String password = PropertiesManager.getCredentials(Constants.DATASTORE_PASSWORD);
@@ -251,8 +252,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	public boolean isConnected(){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		try{
 			return (connectionList.get(thread_id).installer==null || 
 					connectionList.get(thread_id).ds==null) ? false : true;
@@ -264,8 +265,8 @@ public class Datastore extends AbstractDatabase {
 	@Override
 	public void disconnect() {
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		if(isConnected()){
 			if(connectionList.get(thread_id).installer!=null)
 				connectionList.get(thread_id).installer.uninstall();
@@ -283,8 +284,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	private void putBatch(List<Entity> batch){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		boolean proof = true;
 		while(proof){
 			try{
@@ -298,8 +299,8 @@ public class Datastore extends AbstractDatabase {
 	
 	private Map<Key,Entity> getEntitiesByKeys(List<Integer> keys, String kind){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		//building Datastore keys
 		ArrayList<Key> dKeys = new ArrayList<Key>(keys.size());
 		for(Integer ik : keys){
@@ -321,8 +322,8 @@ public class Datastore extends AbstractDatabase {
 	 */
 	private Map<Key,Entity> getEntitiesByKeyRange(long start, long end, String kind){
 		int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 		//building Datastore keys
 		KeyRange dKeys = new KeyRange(null, kind, start, end);
 		//querying for the given keys
@@ -337,8 +338,8 @@ public class Datastore extends AbstractDatabase {
     */
    private Iterable<Entity> getEntitiesByKind(String kind){
 	   int thread_id = 0;
-	   if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+	   if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
    		Query q = new Query(kind);
    		PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
    		return pq.asIterable();
@@ -355,8 +356,8 @@ public class Datastore extends AbstractDatabase {
    		Cursor cursor, int pageSize){
 	   
 	   int thread_id = 0;
-	   if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+	   if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
    		boolean proof = true;
    		QueryResultList<Entity> results = null;
 	   	/**
@@ -389,8 +390,8 @@ public class Datastore extends AbstractDatabase {
     */
    private Iterable<Entity> getDescentents(Key ancestorKey){
 	   int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 	    	Query q = new Query().setAncestor(ancestorKey);
 	    	PreparedQuery pq = connectionList.get(thread_id).ds.prepare(q);
 	    	return pq.asIterable();
@@ -402,8 +403,8 @@ public class Datastore extends AbstractDatabase {
     */
    public List<String> getAllKinds(){
 	   int thread_id = 0;
-		if(THREADS_NO!=0)
-			thread_id = (int) (Thread.currentThread().getId()%THREADS_NO);
+		if(TWTs_NO!=0)
+			thread_id = (int) (Thread.currentThread().getId()%TWTs_NO);
 	   	Iterable<Entity> results = connectionList.get(thread_id).ds.prepare(new Query(Entities.KIND_METADATA_KIND)).asIterable();
 	   	//list containing kinds of the root entities
 	   	ArrayList<String> kinds = new ArrayList<String>();
@@ -451,84 +452,93 @@ public class Datastore extends AbstractDatabase {
 	        for(int VDPid = 0;VDPid<totalVDPs;VDPid++){
 	        		//announcing the migration status for the new VDP
         			try {
-						if(canMigrate(kind, VDPid)){
-							//generating ids from the VDP
-							/*ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
-							if(VDPid == 0){
-								if(ids.get(0) == 0)
-									ids.remove(0);
-							}*/
-							
-							int[] vdpExtremes = VdpUtils.getVdpExtremes(VDPid, maxSeq, vdpSize);
-							long start = vdpExtremes[0];
-							long end = vdpExtremes[1];
-							if(VDPid == 0){
-								if(start == 0)
-									start = 1;
-							}
-							
-							log.debug(Thread.currentThread().getName() +
-									" Getting entities for VDP: "+kind+"/"+VDPid);
-							
-							
-							//getting entities from the Datastore
-							//Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
-							Map<Key, Entity> result;
-							if(end>0)
-								result = datastore.getEntitiesByKeyRange(start, end, kind);
-							else
-								result = new HashMap<Key, Entity>();
-							
-							//getting the effective #entities to be piggybacked with every Metamodel entity
-							int actualEntitiesNumber = result.size();
-							
-							//Mapping entities to the Metamodel and sending it to the queue.
-							for(Entity entity : result.values()){
-								DatastoreModel dsModel = new DatastoreModel(entity);
-								dsModel.setAncestorString(entity.getKey().toString());
-								DatastoreTransformer dt = new DatastoreTransformer();
-								Metamodel myModel = dt.toMyModel(dsModel);
-								//Piggybacking the actual number of entities the TWC should expect.
-								HashMap<String, Integer> counters = new HashMap<String, Integer>();
-								counters.put(entity.getKind(), actualEntitiesNumber);
-								myModel.setActualVdpSize(counters);
+        					//Trying to reduce concurrency on ZooKeeper, better having it on local snapshot
+        					if(snapshot.get(kind).getVDPstatus(VDPid).getCurrentState().equals(State.NOT_MIGRATED)){
+							if(canMigrate(kind, VDPid)){
+								//generating ids from the VDP
+								/*ArrayList<Integer> ids = VdpUtils.getElements(VDPid, maxSeq, vdpSize);
+								if(VDPid == 0){
+									if(ids.get(0) == 0)
+										ids.remove(0);
+								}*/
 								
-								if(myModel!=null){
+								int[] vdpExtremes = VdpUtils.getVdpExtremes(VDPid, maxSeq, vdpSize);
+								long start = vdpExtremes[0];
+								long end = vdpExtremes[1];
+								if(VDPid == 0){
+									if(start == 0)
+										start = 1;
+								}
+								
+								log.debug(Thread.currentThread().getName() +
+										" Getting entities for VDP: "+kind+"/"+VDPid);
+								
+								
+								//getting entities from the Datastore
+								//Map<Key, Entity> result = datastore.getEntitiesByKeys(ids, kind);
+								Map<Key, Entity> result;
+								if(end>0)
+									result = datastore.getEntitiesByKeyRange(start, end, kind);
+								else
+									result = new HashMap<Key, Entity>();
+								
+								//getting the effective #entities to be piggybacked with every Metamodel entity
+								int actualEntitiesNumber = result.size();
+								
+								//Mapping entities to the Metamodel and sending it to the queue.
+								for(Entity entity : result.values()){
+									DatastoreModel dsModel = new DatastoreModel(entity);
+									dsModel.setAncestorString(entity.getKey().toString());
+									DatastoreTransformer dt = new DatastoreTransformer();
+									Metamodel myModel = dt.toMyModel(dsModel);
+									//Piggybacking the actual number of entities the TWC should expect.
+									HashMap<String, Integer> counters = new HashMap<String, Integer>();
+									counters.put(entity.getKind(), actualEntitiesNumber);
+									myModel.setActualVdpSize(counters);
+									
+									if(myModel!=null){
+										try {
+											taskQueues.get(thread_id).publish(serializer.serialize(myModel));
+											i++;
+										} catch (QueueException | TException e) {
+											log.error(Thread.currentThread().getName() +
+													" Serialization Error: ", e);
+										}
+									}
+								}
+								log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
+										+VDPid+": "+actualEntitiesNumber);
+								
+								//in the event that the client application requested too many ids, so that an entire VDP is empty,
+								//or in the case the client application has removed all entities in a VDP...
+								//there's no reason why that VDP should figure as "NOT_MIGRATED"
+								if(actualEntitiesNumber==0){
 									try {
-										taskQueues.get(thread_id).publish(serializer.serialize(myModel));
-										i++;
-									} catch (QueueException | TException e) {
-										log.error("Serialization Error: ", e);
+										while(!notifyFinishedMigration(kind, VDPid)){
+											log.debug(Thread.currentThread().getName()+
+													" I currently can't set VDP "+VDPid+" to migrated");
+											Thread.sleep(300);
+										}
+									} catch (Exception e) {
+										log.error(Thread.currentThread().getName() +
+												" Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
+											return null;
 									}
 								}
+								
+								//if(i%5000==0)
+								//	taskQueues.get(0).slowDownProduction();
+							} else {
+								//log.debug(Thread.currentThread().getName()+
+								//		" Skipping VDP with id "+VDPid);
 							}
-							log.debug(Thread.currentThread().getName()+" Total Produced entities: "+i+". Entities from VDPid "
-									+VDPid+": "+actualEntitiesNumber);
-							
-							//in the event that the client application requested too many ids, so that an entire VDP is empty,
-							//or in the case the client application has removed all entities in a VDP...
-							//there's no reason why that VDP should figure as "NOT_MIGRATED"
-							if(actualEntitiesNumber==0){
-								try {
-									while(!notifyFinishedMigration(kind, VDPid)){
-										log.debug(Thread.currentThread().getName()+
-												"I currently can't set VDP "+VDPid+" to migrated");
-										Thread.sleep(300);
-									}
-								} catch (Exception e) {
-									log.error("Error setting the final migration status for kind: "+kind+" VDP: "+VDPid, e);
-										return null;
-								}
-							}
-							
-							//if(i%5000==0)
-							//	taskQueues.get(0).slowDownProduction();
-						} else {
-							log.info(Thread.currentThread().getName()+
-									" Skipping VDP with id "+VDPid);
-						}
+        					}else{
+        						//log.debug(Thread.currentThread().getName()+
+							//			" Pre-Skipping VDP with id "+VDPid);
+        					}
 					} catch (Exception e) {
-						log.error("Error setting the initial migration status for kind: "+kind, e);
+						log.error(Thread.currentThread().getName() +
+								" Error setting the initial migration status for kind: "+kind, e);
         					return null;
 					}
 	        }
