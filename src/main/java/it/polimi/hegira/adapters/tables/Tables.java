@@ -501,14 +501,14 @@ public class Tables extends AbstractDatabase {
 					if(tbl==null){
 						taskQueues.get(thread_id).sendNack(delivery);
 						log.info(Thread.currentThread().getName()+" - Sending Nack!! for entity(/ies)");
-						return null;
+						//return null;
 					}
 					for(DynamicTableEntity entity : entities){
 						TableResult ie = insertEntity(tableName, entity);
 						if(ie==null){
-							taskQueues.get(thread_id).sendNack(delivery);
-							log.info(Thread.currentThread().getName()+" - Sending Nack!! for entity(/ies)");
-							return null;
+							//taskQueues.get(thread_id).sendNack(delivery);
+							//log.info(Thread.currentThread().getName()+" - Sending Nack!! for entity(/ies)");
+							//return null;
 						}
 						count++;
 						//if(count%100==0)
