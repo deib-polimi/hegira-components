@@ -76,8 +76,10 @@ public class TaskQueue {
 						this.THREADS_NO = MAX_THREADS_NO;
 						log.info(DefaultErrors.getThreadsInformation(MAX_THREADS_NO));
 					}
-					
-					channel.basicQos(1);
+					if(factory.getHost().equals("localhost"))
+						channel.basicQos(1);
+					else
+						channel.basicQos(20);
 					consumer = new QueueingConsumer(channel);
 					/**
 					 * basicConsume(java.lang.String queue, boolean autoAck, Consumer callback)
@@ -189,43 +191,42 @@ public class TaskQueue {
 		return TASK_QUEUE_NAME;
 	}
 	
+	private int queueElements = 0;
+	private long previousQueueCheckTime=0;
+	
 	/**
 	 * When called, determines if the SRC produces too fast for the TWC which consumes.
 	 * If it is the case, it slows down the production.
 	 * Should be used only for non-partitioned migration.
 	 */
 	public void slowDownProduction(){
-		int queueElements = 0;
-		long previousQueueCheckTime=0;
 		
-		if(queueElements>0 && previousQueueCheckTime>0){
+		int messageCount = getMessageCount(TASK_QUEUE_NAME);
+		
+		//Producer is faster then consumers
+		if(messageCount-queueElements>0 && messageCount>50000){
+			long consumingRate = (messageCount-queueElements)/
+					(System.currentTimeMillis() - previousQueueCheckTime);
+		
+			if(consumingRate<=0) consumingRate=1;
+			/*
+			 * How much time should I wait to lower the queue to 50'000entities?
+			 * t = (messageCount(ent) - 50000(ent))/consumingRate(ms)
+			 * Anyway, wait no more than 40s
+			 */
+			long t = (messageCount - 50000)/consumingRate;
+			if(t>40000) t=40000;
+			if(t<0) t=0;
 			
-			int messageCount = getMessageCount(TASK_QUEUE_NAME);
-			
-			//Producer is faster then consumers
-			if(messageCount-queueElements>0 && messageCount>50000){
-				long consumingRate = (messageCount-queueElements)/
-						(System.currentTimeMillis() - previousQueueCheckTime);
-			
-				if(consumingRate<=0) consumingRate=1;
-				/*
-				 * How much time should I wait to lower the queue to 50'000entities?
-				 * t = (messageCount(ent) - 50000(ent))/consumingRate(ms)
-				 * Anyway, wait no more than 40s
-				 */
-				long t = (messageCount - 50000)/consumingRate;
-				if(t>40000) t=40000;
-				if(t<0) t=0;
-				
-				log.debug("Consuming rate: "+consumingRate+"ent/ms. \tSlowing down ... wait "+t+" ms");
-				//Thread.currentThread().wait(t);
-				try {
-					Thread.sleep(t);
-				} catch (InterruptedException e) {
-					log.error("Cannot puase", e);
-				}
-				
+			log.debug("Consuming rate: "+consumingRate+"ent/ms. \tSlowing down ... wait "+t+" ms");
+			//Thread.currentThread().wait(t);
+			try {
+				Thread.sleep(t);
+			} catch (InterruptedException e) {
+				log.error("Cannot puase", e);
 			}
+				
+			
 		
 			queueElements = getMessageCount(TASK_QUEUE_NAME);
 			previousQueueCheckTime = System.currentTimeMillis();

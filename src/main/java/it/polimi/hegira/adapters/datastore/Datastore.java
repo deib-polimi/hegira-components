@@ -526,8 +526,8 @@ public class Datastore extends AbstractDatabase {
 									}
 								}
 								
-								//if(i%5000==0)
-								//	taskQueues.get(0).slowDownProduction();
+								if(i%5000==0)
+									taskQueues.get(0).slowDownProduction();
 							} else {
 								//log.debug(Thread.currentThread().getName()+
 								//		" Skipping VDP with id "+VDPid);
