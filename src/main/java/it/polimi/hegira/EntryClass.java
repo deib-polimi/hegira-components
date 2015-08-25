@@ -66,6 +66,7 @@ public class EntryClass {
 							if(sqm.getSRTs_NO()>=1)
 								options_producer.put("SRTs_NO", ""+sqm.getSRTs_NO());
 							
+							options_producer.put("queue-address", cli.queueAddress);
 							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
 							src.switchOver("SRC");
 		            		}else if(cli.componentType.equals("TWC")){
@@ -76,6 +77,7 @@ public class EntryClass {
 		        					options_consumer.put("threads", ""+sqm.getThreads());
 		        				}
 		        				
+		        				options_consumer.put("queue-address", cli.queueAddress);
 		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
 		        						options_consumer);
 		        				dst.switchOver("TWC");
@@ -89,6 +91,7 @@ public class EntryClass {
 							log.debug("Received command message, destined to: SRC");
 							HashMap<String, String> options_producer = new HashMap<String,String>();
 							options_producer.put("mode", Constants.PRODUCER);
+							options_producer.put("queue-address", cli.queueAddress);
 							
 							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
 							src.switchOverPartitioned("SRC", false);
@@ -99,6 +102,7 @@ public class EntryClass {
 		        				if(sqm.getThreads()>=1){
 		        					options_consumer.put("threads", ""+sqm.getThreads());
 		        				}
+		        				options_consumer.put("queue-address", cli.queueAddress);
 		        				
 		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
 		        						options_consumer);
@@ -115,6 +119,7 @@ public class EntryClass {
 							log.debug("Received command message, destined to: SRC");
 							HashMap<String, String> options_producer = new HashMap<String,String>();
 							options_producer.put("mode", Constants.PRODUCER);
+							options_producer.put("queue-address", cli.queueAddress);
 							
 							AbstractDatabase src = DatabaseFactory.getDatabase(sqm.getSource(), options_producer);
 							src.switchOverPartitioned("SRC", true);
@@ -128,6 +133,7 @@ public class EntryClass {
 		        				if(sqm.getThreads()>=1){
 		        					options_consumer.put("threads", ""+sqm.getThreads());
 		        				}
+		        				options_consumer.put("queue-address", cli.queueAddress);
 		        				
 		        				AbstractDatabase dst = DatabaseFactory.getDatabase(sqm.getDestination().get(0),
 		        						options_consumer);
