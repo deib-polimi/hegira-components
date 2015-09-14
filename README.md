@@ -5,6 +5,7 @@
 ##### Configuration
 
 After having downloaded the source code a new file should be created under the folder src/main/resources:
+
 * credentials.properties
 
 ###### credentials.properties
