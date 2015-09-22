@@ -61,3 +61,9 @@ java -jar hegira-components.jar [options]
     --type, -t
    
        launch a SRC or a TWC
+
+##License##
+
+Licensed under the [Apache License, Version 2.0][1]
+
+[1]: http://www.apache.org/licenses/LICENSE-2.0
