@@ -4,7 +4,6 @@
 
 ##### Configuration
 
-<<<<<<< HEAD
 After having downloaded the source code a new file should be created under the folder ``src/main/resources``:
 
 * credentials.properties
@@ -42,7 +41,7 @@ The primary key parameter specifies the name of the column that will be used as 
 The project is Maven compliant, hence by executing the command ```mvn clean package``` the proper packages will be created.
 
 ##### Deploy
-<<<<<<< HEAD
+
 In order to interact with Google AppEngine Datastore, an application should be deployed and run on Google AppEngine; in particular, the application web.xml file should allow for `Remote Api` to be accepted by the Google AppEngine application, as described [here](https://cloud.google.com/appengine/docs/java/tools/remoteapi)
 
 ## Usage: 
